@@ -1,5 +1,9 @@
 pub mod user;
 pub mod student;
+pub mod stop;
+pub mod route;
+pub mod vehicle;
+pub mod gps;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
