@@ -22,7 +22,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.cards}>
-        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} mode="elevated">
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
             <Text variant="titleLarge" style={{ color: theme.colors.onSurface }}>
               🚌 Mój autobus
@@ -38,7 +38,7 @@ export default function HomeScreen() {
           </Card.Actions>
         </Card>
 
-        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} mode="elevated">
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
             <Text variant="titleLarge" style={{ color: theme.colors.onSurface }}>
               🎫 Moje bilety
@@ -54,7 +54,7 @@ export default function HomeScreen() {
           </Card.Actions>
         </Card>
 
-        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} mode="elevated">
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
             <Text variant="titleLarge" style={{ color: theme.colors.onSurface }}>
               👶 Dzieci
@@ -64,7 +64,7 @@ export default function HomeScreen() {
             </Text>
           </Card.Content>
           <Card.Actions>
-            <Button mode="contained" buttonColor={theme.colors.tertiary} textColor="#000">
+            <Button mode="contained" buttonColor={theme.colors.tertiary} >
               Sprawdź
             </Button>
           </Card.Actions>
