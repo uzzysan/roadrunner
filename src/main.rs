@@ -1,12 +1,24 @@
+mod auth;
+mod config;
+mod handlers;
 mod models;
 
 use axum::{
-    routing::get,
+    routing::{get, post},
     Router,
 };
-use std::net::SocketAddr;
+use sqlx::postgres::PgPoolOptions;
+use std::sync::Arc;
 use tracing::{info, Level};
 use tracing_subscriber;
+
+use crate::config::Config;
+
+#[derive(Clone)]
+struct AppState {
+    pool: sqlx::PgPool,
+    config: Arc<Config>,
+}
 
 #[tokio::main]
 async fn main() {
@@ -16,11 +28,26 @@ async fn main() {
 
     info!("Starting RoadRunner server...");
 
+    let config = Arc::new(Config::from_env());
+    
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&config.database_url)
+        .await
+        .expect("Failed to connect to database");
+    
+    info!("Connected to database");
+
+    let state = AppState { pool, config };
+
     let app = Router::new()
         .route("/", get(root))
-        .route("/health", get(health_check));
+        .route("/health", get(health_check))
+        .route("/auth/register", post(handlers::auth::register))
+        .route("/auth/login", post(handlers::auth::login))
+        .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let addr = format!("0.0.0.0:3000");
     info!("Listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
