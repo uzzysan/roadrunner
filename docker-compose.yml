@@ -1,3 +1,7 @@
+# Note: On Raspberry Pi 5 use Podman instead of Docker
+# podman-compose up -d
+# On production servers: docker-compose up -d
+
 version: '3.8'
 
 services:
