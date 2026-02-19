@@ -1,3 +1,5 @@
+mod models;
+
 use axum::{
     routing::get,
     Router,
@@ -8,7 +10,6 @@ use tracing_subscriber;
 
 #[tokio::main]
 async fn main() {
-    // Initialize tracing
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
         .init();

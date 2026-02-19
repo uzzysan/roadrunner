@@ -25,3 +25,15 @@ Currently running native PostgreSQL 17 + PostGIS 3.5:
 - User: roadrunner
 - Database: roadrunner
 - PostGIS: enabled
+
+## AI Tools on Pi5
+
+### kimi-cli
+Installed and available for complex tasks on the remote machine.
+Useful for:
+- Code generation
+- Documentation
+- Complex refactoring
+- Analysis tasks
+
+Usage: kimi-cli <prompt>
