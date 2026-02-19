@@ -50,7 +50,7 @@ export default function HomeScreen() {
         >
           <Card.Title
             title={nearestStop.name}
-            subtitle={}
+            subtitle={nearestStop.distance + ' • Najbliższy przystanek'}
             titleStyle={{ 
               color: theme.colors.onSurface, 
               fontSize: 20, 
