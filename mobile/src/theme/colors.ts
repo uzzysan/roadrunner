@@ -1,18 +1,22 @@
-// RoadRunner Brand Colors
+// RoadRunner Brand Colors - updated, less aggressive
 export const brandColors = {
-  // Primary - czerwony autobus
-  primary: '#E53935',
-  primaryDark: '#C62828',
-  primaryLight: '#EF5350',
+  // Primary - czerwony autobus (mniej agresywny)
+  primary: '#D32F2F',        // Ciemniejszy czerwony
+  primaryDark: '#B71C1C',    // Dla dark mode
+  primaryLight: '#EF5350',   // Dla light mode
   
-  // Secondary - ciemny granat
+  // Secondary - granat
   secondary: '#1A237E',
   secondaryDark: '#0D1642',
   secondaryLight: '#3949AB',
   
-  // Accent - żółty (szkolny)
+  // Accent - żółty/szkolny
   accent: '#FFC107',
   accentDark: '#FFA000',
+  
+  // Header - szary zamiast czerwonego
+  header: '#37474F',         // Ciemny szary
+  headerDark: '#263238',     // Dla dark mode
 };
 
 // Light Theme
@@ -21,8 +25,8 @@ export const lightTheme = {
   colors: {
     primary: brandColors.primary,
     onPrimary: '#FFFFFF',
-    primaryContainer: brandColors.primaryLight,
-    onPrimaryContainer: '#FFFFFF',
+    primaryContainer: '#FFEBEE',  // Jasny czerwony
+    onPrimaryContainer: brandColors.primaryDark,
     
     secondary: brandColors.secondary,
     onSecondary: '#FFFFFF',
@@ -48,6 +52,10 @@ export const lightTheme = {
     success: '#388E3C',
     warning: '#F57C00',
     info: '#1976D2',
+    
+    // Custom
+    header: brandColors.header,
+    onHeader: '#FFFFFF',
   },
 };
 
@@ -84,5 +92,9 @@ export const darkTheme = {
     success: '#66BB6A',
     warning: '#FFA726',
     info: '#42A5F5',
+    
+    // Custom
+    header: brandColors.headerDark,
+    onHeader: '#FFFFFF',
   },
 };

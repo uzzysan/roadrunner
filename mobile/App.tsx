@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { PaperProvider } from 'react-native-paper';
+import { PaperProvider, IconButton } from 'react-native-paper';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useColorScheme } from 'react-native';
 
 import { lightTheme, darkTheme } from './src/theme/colors';
 import HomeScreen from './src/screens/HomeScreen';
@@ -15,9 +16,14 @@ import ProfileScreen from './src/screens/ProfileScreen';
 const Tab = createBottomTabNavigator();
 
 export default function App() {
-  // TODO: Get from system or user preference
-  const isDarkMode = false;
+  const systemColorScheme = useColorScheme();
+  const [isDarkMode, setIsDarkMode] = useState(systemColorScheme === 'dark');
+  
   const theme = isDarkMode ? darkTheme : lightTheme;
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
 
   return (
     <SafeAreaProvider>
@@ -49,9 +55,16 @@ export default function App() {
                 borderTopColor: theme.colors.outlineVariant,
               },
               headerStyle: {
-                backgroundColor: theme.colors.primary,
+                backgroundColor: theme.colors.header,  // Szary zamiast czerwonego
               },
-              headerTintColor: theme.colors.onPrimary,
+              headerTintColor: theme.colors.onHeader,
+              headerRight: () => (
+                <IconButton
+                  icon={isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'}
+                  iconColor={theme.colors.onHeader}
+                  onPress={toggleTheme}
+                />
+              ),
             })}
           >
             <Tab.Screen 
