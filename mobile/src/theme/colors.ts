@@ -1,70 +1,68 @@
-// Kolory wyciągnięte z logo RoadRunner
+// Kolory RoadRunner - zgodne z brandem
 
 export const brandColors = {
-  // Czerwony z autobusu (logo)
-  busRed: '#E53935',
-  busRedDark: '#C62828',
-  busRedLight: '#FFEBEE',
+  // Pomarańczowy - kolor logo i akcentów
+  orange: '#F7941D',
+  orangeDark: '#E8850F',
+  orangeLight: '#FFB74D',
   
-  // Granatowy/czarny z opon i okien
-  navy: '#1A1A2E',
-  navyLight: '#2D2D44',
+  // Szare
+  grayDark: '#43526B',   // Ciemny szary - tekst w jasnym motywie
+  grayLight: '#E7ECEF',  // Jasny szary - tło w jasnym motywie
   
-  // Szary z drogi
-  roadGray: '#9E9E9E',
-  roadGrayLight: '#E0E0E0',
-  
-  // Biały/szary z chmur
-  cloud: '#F5F5F5',
-  cloudDark: '#ECEFF1',
+  // Dodatkowe
+  white: '#FFFFFF',
+  black: '#1A1A1A',
 };
 
 // Gradienty dla dolnej części ekranu
 export const gradients = {
-  light: ['#FFFFFF', '#FFEBEE', '#FFCDD2'] as const,  // Biały -> jasny czerwony
-  dark: ['#1A1A2E', '#2D2D44', '#3D3D5C'] as const,    // Granat -> ciemny granat
+  // Jasny: od delikatnie ciemniejszego niż tło
+  light: ['#E7ECEF', '#DDE3E7', '#D3DADF'] as const,
+  // Ciemny: od delikatnie jaśniejszego niż tło
+  dark: ['#43526B', '#4A5A75', '#52627F'] as const,
 };
 
 // Light Theme
 export const lightTheme = {
   dark: false,
   colors: {
-    // Primary - czerwony autobusu
-    primary: brandColors.busRed,
+    // Primary - pomarańczowy
+    primary: brandColors.orange,
     onPrimary: '#FFFFFF',
-    primaryContainer: brandColors.busRedLight,
-    onPrimaryContainer: brandColors.busRedDark,
+    primaryContainer: '#FFF3E0',
+    onPrimaryContainer: brandColors.orangeDark,
     
-    // Secondary - granatowy
-    secondary: brandColors.navy,
+    // Secondary - ciemny szary
+    secondary: brandColors.grayDark,
     onSecondary: '#FFFFFF',
-    secondaryContainer: brandColors.navyLight,
-    onSecondaryContainer: '#FFFFFF',
+    secondaryContainer: '#E3E8EC',
+    onSecondaryContainer: brandColors.grayDark,
     
-    // Tło
-    background: '#FAFAFA',
-    onBackground: '#212121',
+    // Tło - jasny szary
+    background: brandColors.grayLight,
+    onBackground: brandColors.grayDark,
     
-    // Surface - karty
-    surface: '#FFFFFF',
-    onSurface: '#212121',
-    surfaceVariant: '#F5F5F5',
-    onSurfaceVariant: '#616161',
+    // Surface - biały (karty)
+    surface: brandColors.white,
+    onSurface: brandColors.grayDark,
+    surfaceVariant: '#F5F7F8',
+    onSurfaceVariant: '#5A6A7D',
     
     // Outline
-    outline: '#E0E0E0',
-    outlineVariant: '#EEEEEE',
+    outline: '#C5CDD3',
+    outlineVariant: '#DDE3E7',
     
     // Statusy
     error: '#D32F2F',
     onError: '#FFFFFF',
     success: '#2E7D32',
-    warning: '#ED6C02',
-    info: '#0288D1',
+    warning: brandColors.orange,
+    info: '#1976D2',
     
-    // Header - przezroczysty/jasny
+    // Header
     header: 'transparent',
-    onHeader: brandColors.navy,
+    onHeader: brandColors.grayDark,
   },
 };
 
@@ -72,41 +70,41 @@ export const lightTheme = {
 export const darkTheme = {
   dark: true,
   colors: {
-    // Primary - jaśniejszy czerwony
-    primary: '#FF6659',
-    onPrimary: '#000000',
-    primaryContainer: brandColors.busRedDark,
+    // Primary - pomarańczowy (jaśniejszy)
+    primary: '#FFB74D',
+    onPrimary: '#1A1A1A',
+    primaryContainer: brandColors.orangeDark,
     onPrimaryContainer: '#FFFFFF',
     
-    // Secondary - jaśniejszy granat
-    secondary: '#5C5C8A',
-    onSecondary: '#FFFFFF',
-    secondaryContainer: brandColors.navy,
+    // Secondary - jasny szary
+    secondary: brandColors.grayLight,
+    onSecondary: brandColors.grayDark,
+    secondaryContainer: '#4A5A75',
     onSecondaryContainer: '#FFFFFF',
     
-    // Tło
-    background: brandColors.navy,
-    onBackground: '#FFFFFF',
+    // Tło - ciemny szary
+    background: brandColors.grayDark,
+    onBackground: brandColors.grayLight,
     
-    // Surface - karty
-    surface: brandColors.navyLight,
-    onSurface: '#FFFFFF',
-    surfaceVariant: '#3D3D5C',
-    onSurfaceVariant: '#B0B0C3',
+    // Surface - ciemniejszy (karty)
+    surface: '#4A5A75',
+    onSurface: brandColors.grayLight,
+    surfaceVariant: '#52627F',
+    onSurfaceVariant: '#B0BCC8',
     
     // Outline
-    outline: '#4A4A6A',
-    outlineVariant: '#3D3D5C',
+    outline: '#5A6A7D',
+    outlineVariant: '#52627F',
     
     // Statusy
     error: '#EF5350',
-    onError: '#000000',
+    onError: '#1A1A1A',
     success: '#66BB6A',
     warning: '#FFA726',
     info: '#42A5F5',
     
     // Header
     header: 'transparent',
-    onHeader: '#FFFFFF',
+    onHeader: brandColors.grayLight,
   },
 };
