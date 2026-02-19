@@ -4,8 +4,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 use validator::Validate;
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "user_role")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserRole {
     Passenger,
     Driver,

@@ -3,7 +3,6 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::config::Config;
 use crate::models::user::UserRole;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,14 +21,17 @@ pub struct TokenPair {
     pub expires_in: i64,
 }
 
+// JWT secret - w produkcji z env
+const JWT_SECRET: &str = "roadrunner-secret-key-change-in-production";
+const JWT_EXPIRATION: i64 = 86400; // 24h
+
 pub fn generate_token_pair(
     user_id: Uuid,
     email: String,
     role: UserRole,
-    config: &Config,
 ) -> Result<TokenPair, jsonwebtoken::errors::Error> {
     let now = Utc::now();
-    let exp = now + Duration::seconds(config.jwt_expiration);
+    let exp = now + Duration::seconds(JWT_EXPIRATION);
     
     let claims = Claims {
         sub: user_id,
@@ -40,11 +42,11 @@ pub fn generate_token_pair(
     };
     
     let header = Header::default();
-    let encoding_key = EncodingKey::from_secret(config.jwt_secret.as_bytes());
+    let encoding_key = EncodingKey::from_secret(JWT_SECRET.as_bytes());
     
     let access_token = encode(&header, &claims, &encoding_key)?;
     
-    // Refresh token expires in 7 days
+    // Refresh token - 7 dni
     let refresh_exp = now + Duration::days(7);
     let refresh_claims = Claims {
         sub: user_id,
@@ -58,6 +60,6 @@ pub fn generate_token_pair(
     Ok(TokenPair {
         access_token,
         refresh_token,
-        expires_in: config.jwt_expiration,
+        expires_in: JWT_EXPIRATION,
     })
 }

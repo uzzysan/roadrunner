@@ -16,12 +16,6 @@ use tracing_subscriber;
 use crate::config::Config;
 use crate::websocket::state::WsState;
 
-#[derive(Clone)]
-struct AppState {
-    pool: sqlx::PgPool,
-    config: Arc<Config>,
-}
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
@@ -40,11 +34,8 @@ async fn main() {
     
     info!("Connected to database");
     
-    // WebSocket state (shared)
     let ws_state = Arc::new(WsState::new());
     info!("WebSocket state initialized");
-
-    let app_state = AppState { pool, config };
 
     let app = Router::new()
         .route("/", get(root))
@@ -53,11 +44,10 @@ async fn main() {
         .with_state(ws_state.clone())
         .route("/auth/register", post(handlers::auth::register))
         .route("/auth/login", post(handlers::auth::login))
-        .with_state(app_state);
+        .with_state(pool);
 
     let addr = format!("0.0.0.0:3000");
     info!("Listening on {}", addr);
-    info!("WebSocket endpoint: ws://{}/ws", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
