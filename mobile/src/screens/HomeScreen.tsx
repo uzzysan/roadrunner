@@ -1,11 +1,15 @@
 import React from 'react';
-import { View, StyleSheet, Image, ScrollView } from 'react-native';
-import { Text, Card, Button, List, useTheme } from 'react-native-paper';
+import { View, StyleSheet, Image, ScrollView, Dimensions } from 'react-native';
+import { Text, Card, Button, useTheme } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
+import { gradients } from '../theme/colors';
+
+const { height } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const theme = useTheme();
+  const isDark = theme.dark;
 
-  // Mock data - w przyszłości z API
   const nearestStop = {
     name: 'Plac Wolności',
     distance: '150 m',
@@ -17,88 +21,120 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.header}>
-        <Image
-          source={require('../assets/logo-transparent.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
+    <View style={styles.container}>
+      {/* Główna zawartość */}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Logo */}
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../assets/logo-transparent.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
 
-      {/* Najbliższy przystanek */}
-      <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-        <Card.Title
-          title={}
-          subtitle={}
-          titleStyle={{ color: theme.colors.onSurface }}
-          subtitleStyle={{ color: theme.colors.onSurfaceVariant }}
-        />
-        <Card.Content>
-          <Text variant="titleMedium" style={{ color: theme.colors.onSurface, marginBottom: 8 }}>
-            Nadjeżdżające autobusy:
-          </Text>
-          {nearestStop.lines.map((line, index) => (
-            <View key={index} style={styles.lineRow}>
-              <View style={[styles.lineNumber, { backgroundColor: theme.colors.primary }]}>
-                <Text style={styles.lineNumberText}>{line.number}</Text>
+        {/* Karta przystanku */}
+        <Card 
+          style={[
+            styles.card, 
+            { 
+              backgroundColor: theme.colors.surface,
+              shadowColor: isDark ? '#000' : '#E53935',
+              shadowOpacity: 0.1,
+            }
+          ]}
+        >
+          <Card.Title
+            title={nearestStop.name}
+            subtitle={}
+            titleStyle={{ 
+              color: theme.colors.onSurface, 
+              fontSize: 20, 
+              fontWeight: '600' 
+            }}
+            subtitleStyle={{ color: theme.colors.onSurfaceVariant }}
+          />
+          
+          <Card.Content style={styles.linesContainer}>
+            {nearestStop.lines.map((line, index) => (
+              <View key={index} style={styles.lineRow}>
+                <View style={[
+                  styles.lineBadge, 
+                  { backgroundColor: theme.colors.primary }
+                ]}>
+                  <Text style={styles.lineNumber}>{line.number}</Text>
+                </View>
+                <View style={styles.lineDetails}>
+                  <Text style={{ color: theme.colors.onSurface, fontSize: 16 }}>
+                    {line.direction}
+                  </Text>
+                  <Text style={{ 
+                    color: theme.colors.primary, 
+                    fontWeight: '700',
+                    fontSize: 14 
+                  }}>
+                    {line.arrival}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.lineInfo}>
-                <Text style={{ color: theme.colors.onSurface }}>{line.direction}</Text>
-                <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{line.arrival}</Text>
-              </View>
-            </View>
-          ))}
-        </Card.Content>
-        <Card.Actions>
-          <Button 
-            mode="contained" 
-            buttonColor={theme.colors.primary}
-            onPress={() => {}}
-          >
-            Znajdź przystanek
-          </Button>
-          <Button 
-            mode="outlined" 
-            textColor={theme.colors.primary}
-            onPress={() => {}}
-          >
-            Pełny rozkład
-          </Button>
-        </Card.Actions>
-      </Card>
+            ))}
+          </Card.Content>
 
-      {/* Dla zalogowanych - Bilety */}
-      <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-        <Card.Title
-          title="🎫 Bilety" 
-          subtitle="Zaloguj się, aby zobaczyć bilety" 
-          titleStyle={{ color: theme.colors.onSurface }}
-          subtitleStyle={{ color: theme.colors.onSurfaceVariant }}
-        />
-        <Card.Actions>
-          <Button mode="contained" buttonColor={theme.colors.secondary}>
-            Zaloguj się
-          </Button>
-        </Card.Actions>
-      </Card>
+          <Card.Actions style={styles.cardActions}>
+            <Button 
+              mode="contained" 
+              buttonColor={theme.colors.primary}
+              style={styles.button}
+            >
+              Pełny rozkład
+            </Button>
+          </Card.Actions>
+        </Card>
 
-      {/* Dla rodziców - Dzieci */}
-      <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
-        <Card.Title
-          title="👶 Dzieci" 
-          subtitle="Widoczne po zalogowaniu jako rodzic" 
-          titleStyle={{ color: theme.colors.onSurface }}
-          subtitleStyle={{ color: theme.colors.onSurfaceVariant }}
-        />
-        <Card.Content>
-          <Text style={{ color: theme.colors.onSurfaceVariant }}>
-            Śledź bezpieczeństwo dzieci w transporcie szkolnym. 
-            Otrzymuj powiadomienia o wsiadaniu i wysiadaniu.
-          </Text>
-        </Card.Content>
-      </Card>
-    </ScrollView>
+        {/* Karta biletów */}
+        <Card style={[
+          styles.card, 
+          { 
+            backgroundColor: theme.colors.surface,
+            shadowColor: isDark ? '#000' : '#1A1A2E',
+            shadowOpacity: 0.08,
+          }
+        ]}>
+          <Card.Title
+            title="Moje bilety" 
+            titleStyle={{ color: theme.colors.onSurface, fontSize: 18 }}
+          />
+          <Card.Content>
+            <Text style={{ color: theme.colors.onSurfaceVariant }}>
+              Zaloguj się, aby zobaczyć swoje bilety QR
+            </Text>
+          </Card.Content>
+          <Card.Actions>
+            <Button 
+              mode="outlined" 
+              textColor={theme.colors.primary}
+              style={styles.button}
+            >
+              Zaloguj się
+            </Button>
+          </Card.Actions>
+        </Card>
+
+        {/* Miejsce na kolejne karty */}
+        <View style={{ height: 100 }} />
+      </ScrollView>
+
+      {/* Gradient w dolnej części */}
+      <LinearGradient
+        colors={isDark ? gradients.dark : gradients.light}
+        style={styles.gradient}
+        locations={[0, 0.5, 1]}
+      />
+    </View>
   );
 }
 
@@ -106,41 +142,70 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    alignItems: 'center',
+  scrollView: {
+    flex: 1,
+  },
+  content: {
     padding: 16,
+    paddingTop: 60, // Miejsce na przezroczysty header
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   logo: {
-    width: 180,
-    height: 100,
+    width: 160,
+    height: 90,
   },
   card: {
-    margin: 12,
-    marginTop: 0,
+    marginBottom: 16,
+    borderRadius: 16,
+    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+  },
+  linesContainer: {
+    paddingTop: 8,
   },
   lineRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#E0E0E020',
   },
-  lineNumber: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  lineBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  lineNumberText: {
+  lineNumber: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 18,
   },
-  lineInfo: {
+  lineDetails: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginLeft: 12,
+    alignItems: 'center',
+    marginLeft: 16,
+  },
+  cardActions: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  button: {
+    borderRadius: 8,
+  },
+  gradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: height * 0.33,
+    zIndex: -1,
   },
 });

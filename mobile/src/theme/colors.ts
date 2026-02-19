@@ -1,61 +1,70 @@
-// RoadRunner Brand Colors - updated, less aggressive
+// Kolory wyciągnięte z logo RoadRunner
+
 export const brandColors = {
-  // Primary - czerwony autobus (mniej agresywny)
-  primary: '#D32F2F',        // Ciemniejszy czerwony
-  primaryDark: '#B71C1C',    // Dla dark mode
-  primaryLight: '#EF5350',   // Dla light mode
+  // Czerwony z autobusu (logo)
+  busRed: '#E53935',
+  busRedDark: '#C62828',
+  busRedLight: '#FFEBEE',
   
-  // Secondary - granat
-  secondary: '#1A237E',
-  secondaryDark: '#0D1642',
-  secondaryLight: '#3949AB',
+  // Granatowy/czarny z opon i okien
+  navy: '#1A1A2E',
+  navyLight: '#2D2D44',
   
-  // Accent - żółty/szkolny
-  accent: '#FFC107',
-  accentDark: '#FFA000',
+  // Szary z drogi
+  roadGray: '#9E9E9E',
+  roadGrayLight: '#E0E0E0',
   
-  // Header - szary zamiast czerwonego
-  header: '#37474F',         // Ciemny szary
-  headerDark: '#263238',     // Dla dark mode
+  // Biały/szary z chmur
+  cloud: '#F5F5F5',
+  cloudDark: '#ECEFF1',
+};
+
+// Gradienty dla dolnej części ekranu
+export const gradients = {
+  light: ['#FFFFFF', '#FFEBEE', '#FFCDD2'] as const,  // Biały -> jasny czerwony
+  dark: ['#1A1A2E', '#2D2D44', '#3D3D5C'] as const,    // Granat -> ciemny granat
 };
 
 // Light Theme
 export const lightTheme = {
   dark: false,
   colors: {
-    primary: brandColors.primary,
+    // Primary - czerwony autobusu
+    primary: brandColors.busRed,
     onPrimary: '#FFFFFF',
-    primaryContainer: '#FFEBEE',  // Jasny czerwony
-    onPrimaryContainer: brandColors.primaryDark,
+    primaryContainer: brandColors.busRedLight,
+    onPrimaryContainer: brandColors.busRedDark,
     
-    secondary: brandColors.secondary,
+    // Secondary - granatowy
+    secondary: brandColors.navy,
     onSecondary: '#FFFFFF',
-    secondaryContainer: brandColors.secondaryLight,
+    secondaryContainer: brandColors.navyLight,
     onSecondaryContainer: '#FFFFFF',
     
-    tertiary: brandColors.accent,
-    onTertiary: '#000000',
-    
+    // Tło
     background: '#FAFAFA',
     onBackground: '#212121',
+    
+    // Surface - karty
     surface: '#FFFFFF',
     onSurface: '#212121',
     surfaceVariant: '#F5F5F5',
     onSurfaceVariant: '#616161',
     
-    outline: '#BDBDBD',
-    outlineVariant: '#E0E0E0',
+    // Outline
+    outline: '#E0E0E0',
+    outlineVariant: '#EEEEEE',
     
+    // Statusy
     error: '#D32F2F',
     onError: '#FFFFFF',
+    success: '#2E7D32',
+    warning: '#ED6C02',
+    info: '#0288D1',
     
-    success: '#388E3C',
-    warning: '#F57C00',
-    info: '#1976D2',
-    
-    // Custom
-    header: brandColors.header,
-    onHeader: '#FFFFFF',
+    // Header - przezroczysty/jasny
+    header: 'transparent',
+    onHeader: brandColors.navy,
   },
 };
 
@@ -63,38 +72,41 @@ export const lightTheme = {
 export const darkTheme = {
   dark: true,
   colors: {
-    primary: brandColors.primaryLight,
-    onPrimary: '#FFFFFF',
-    primaryContainer: brandColors.primaryDark,
+    // Primary - jaśniejszy czerwony
+    primary: '#FF6659',
+    onPrimary: '#000000',
+    primaryContainer: brandColors.busRedDark,
     onPrimaryContainer: '#FFFFFF',
     
-    secondary: brandColors.secondaryLight,
+    // Secondary - jaśniejszy granat
+    secondary: '#5C5C8A',
     onSecondary: '#FFFFFF',
-    secondaryContainer: brandColors.secondaryDark,
+    secondaryContainer: brandColors.navy,
     onSecondaryContainer: '#FFFFFF',
     
-    tertiary: brandColors.accent,
-    onTertiary: '#000000',
-    
-    background: '#121212',
+    // Tło
+    background: brandColors.navy,
     onBackground: '#FFFFFF',
-    surface: '#1E1E1E',
+    
+    // Surface - karty
+    surface: brandColors.navyLight,
     onSurface: '#FFFFFF',
-    surfaceVariant: '#2C2C2C',
-    onSurfaceVariant: '#BDBDBD',
+    surfaceVariant: '#3D3D5C',
+    onSurfaceVariant: '#B0B0C3',
     
-    outline: '#616161',
-    outlineVariant: '#424242',
+    // Outline
+    outline: '#4A4A6A',
+    outlineVariant: '#3D3D5C',
     
+    // Statusy
     error: '#EF5350',
-    onError: '#FFFFFF',
-    
+    onError: '#000000',
     success: '#66BB6A',
     warning: '#FFA726',
     info: '#42A5F5',
     
-    // Custom
-    header: brandColors.headerDark,
+    // Header
+    header: 'transparent',
     onHeader: '#FFFFFF',
   },
 };

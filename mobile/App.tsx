@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider, IconButton } from 'react-native-paper';
@@ -52,10 +52,16 @@ export default function App() {
               tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
               tabBarStyle: {
                 backgroundColor: theme.colors.surface,
-                borderTopColor: theme.colors.outlineVariant,
+                borderTopWidth: 0,
+                elevation: 0,
+                shadowOpacity: 0,
               },
+              // Przezroczysty header
+              headerTransparent: true,
               headerStyle: {
-                backgroundColor: theme.colors.header,  // Szary zamiast czerwonego
+                backgroundColor: 'transparent',
+                elevation: 0,
+                shadowOpacity: 0,
               },
               headerTintColor: theme.colors.onHeader,
               headerRight: () => (
@@ -63,6 +69,7 @@ export default function App() {
                   icon={isDarkMode ? 'white-balance-sunny' : 'moon-waning-crescent'}
                   iconColor={theme.colors.onHeader}
                   onPress={toggleTheme}
+                  style={{ marginRight: 8 }}
                 />
               ),
             })}
@@ -70,22 +77,22 @@ export default function App() {
             <Tab.Screen 
               name="Home" 
               component={HomeScreen}
-              options={{ title: 'RoadRunner' }}
+              options={{ title: '' }}  // Pusty tytuł
             />
             <Tab.Screen 
               name="Tickets" 
               component={TicketsScreen}
-              options={{ title: 'Bilety' }}
+              options={{ title: '' }}
             />
             <Tab.Screen 
               name="Tracking" 
               component={TrackingScreen}
-              options={{ title: 'Śledzenie' }}
+              options={{ title: '' }}
             />
             <Tab.Screen 
               name="Profile" 
               component={ProfileScreen}
-              options={{ title: 'Profil' }}
+              options={{ title: '' }}
             />
           </Tab.Navigator>
         </NavigationContainer>
