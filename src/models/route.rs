@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(rename = "route_type", rename_all = "lowercase")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RouteType {
     Regular,
     School,

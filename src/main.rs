@@ -2,6 +2,7 @@ mod auth;
 mod config;
 mod handlers;
 mod models;
+mod websocket;
 
 use axum::{
     routing::{get, post},
@@ -13,6 +14,7 @@ use tracing::{info, Level};
 use tracing_subscriber;
 
 use crate::config::Config;
+use crate::websocket::state::WsState;
 
 #[derive(Clone)]
 struct AppState {
@@ -37,18 +39,25 @@ async fn main() {
         .expect("Failed to connect to database");
     
     info!("Connected to database");
+    
+    // WebSocket state (shared)
+    let ws_state = Arc::new(WsState::new());
+    info!("WebSocket state initialized");
 
-    let state = AppState { pool, config };
+    let app_state = AppState { pool, config };
 
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(health_check))
+        .route("/ws", get(websocket::ws_handler))
+        .with_state(ws_state.clone())
         .route("/auth/register", post(handlers::auth::register))
         .route("/auth/login", post(handlers::auth::login))
-        .with_state(state);
+        .with_state(app_state);
 
     let addr = format!("0.0.0.0:3000");
     info!("Listening on {}", addr);
+    info!("WebSocket endpoint: ws://{}/ws", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
