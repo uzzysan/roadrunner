@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     postgresql-client \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install sqlx-cli
@@ -15,10 +16,14 @@ RUN cargo install sqlx-cli --no-default-features --features native-tls,postgres
 
 # Copy manifests
 COPY Cargo.toml Cargo.lock ./
+COPY .sqlx ./.sqlx
 
 # Copy source code
 COPY src ./src
 COPY migrations ./migrations
+
+# Set offline mode for sqlx
+ENV SQLX_OFFLINE=true
 
 # Build release binary
 RUN cargo build --release

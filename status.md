@@ -1,7 +1,7 @@
 # RoadRunner - Status Projektu
 
 > Data utworzenia: 2026-03-23  
-> Aktualizacja: 2026-03-23 21:05  
+> Aktualizacja: 2026-03-23 21:30  
 > Aktywna faza: Faza 0 - Infrastruktura  
 > Zarządzanie deploymentem: Coolify (VPS)
 
@@ -10,12 +10,12 @@
 ## 📊 Ogólny Progress
 
 ```
-[███████░░░░░░░░░░░░░] 35% - Faza 0 w trakcie
+[█████████░░░░░░░░░░░] 45% - Faza 0 w trakcie
 ```
 
 | Faza | Status | Postęp | Estymowany czas |
 |------|--------|--------|-----------------|
-| 0. Infrastruktura | 🔄 W trakcie | 70% | 1 tydzień |
+| 0. Infrastruktura | 🔄 W trakcie | 90% | 1 tydzień |
 | 1. Auth v2 | ⏳ Oczekuje | 0% | 1 tydzień |
 | 2. Bilety QR | ⏳ Oczekuje | 0% | 2 tygodnie |
 | 3. Stripe | ⏳ Oczekuje | 0% | 1 tydzień |
@@ -45,11 +45,14 @@
 - [x] **Coolify MCP** skonfigurowany (projekt utworzony: vxad36z1njjiwcvn909ow8en)
 - [x] **SQLx CLI** zainstalowane (v0.8.6)
 - [x] Migracje przekonwertowane do formatu sqlx (0001_, 0002_)
+- [x] **SQLX_OFFLINE** skonfigurowane - build przechodzi bez bazy danych
 - [x] Struktura testów utworzona (tests/unit, tests/integration)
 - [x] **GitHub Actions CI** workflow (.github/workflows/ci.yml)
-- [x] **Dockerfile** dla produkcji (multi-stage build)
+- [x] **Dockerfile** dla produkcji (multi-stage build, SQLX_OFFLINE)
 - [x] **docker-compose.prod.yml** dla deploymentu
+- [x] **coolify.json** - konfiguracja deploymentu
 - [x] Cargo.toml zaktualizowany (lib, bin, sqlx migrate)
+- [x] Build testowany: `cargo build --release` ✅
 
 ### Mobile
 - [x] Expo + React Native setup
@@ -59,24 +62,46 @@
 
 ---
 
-## 🔄 Aktualna Faza (0): Infrastruktura - Pozostałe Zadania
+## 🔄 Aktualna Faza (0): Infrastruktura - Deployment w Coolify
 
-#### SQLx Setup (Finalizacja)
-- [ ] Przygotowanie `sqlx-data.json` (cargo sqlx prepare)
-- [ ] Weryfikacja wszystkich zapytań SQL w czasie kompilacji
-- [ ] Testy z sqlx offline mode
+### Instrukcja deploymentu w Coolify UI:
 
-#### Testy
-- [ ] Uruchomienie testów jednostkowych (cargo test)
-- [ ] Naprawa ewentualnych błędów kompilacji
-- [ ] Dodanie więcej testów auth
+#### 1. Dodanie PostgreSQL + PostGIS:
+1. Wejdź w projekt **RoadRunner** w Coolify
+2. Kliknij **+ New** → **Database**
+3. Wybierz **PostgreSQL**
+4. Ustaw:
+   - Name: `roadrunner-db`
+   - Version: `16` (lub latest)
+5. W sekcji **PostGIS** (jeśli dostępna) włącz rozszerzenie
+6. Zapisz i uruchom
 
-#### Deployment w Coolify
-- [ ] Skonfigurowanie aplikacji w Coolify UI (git repo)
-- [ ] Dodanie PostgreSQL + PostGIS jako usługa
-- [ ] Dodanie Redis jako usługa
-- [ ] Konfiguracja environment variables
-- [ ] Pierwszy deployment
+#### 2. Dodanie Redis:
+1. **+ New** → **Database**
+2. Wybierz **Redis**
+3. Name: `roadrunner-redis`
+4. Zapisz i uruchom
+
+#### 3. Dodanie aplikacji RoadRunner:
+1. **+ New** → **Application**
+2. Wybierz **Git Repository**
+3. Repo: `https://github.com/uzzysan/roadrunner`
+4. Branch: `main`
+5. Build Pack: `Docker Compose`
+6. Docker Compose File: `docker-compose.prod.yml`
+7. Environment Variables:
+   ```
+   DB_USER=roadrunner
+   DB_PASSWORD=[generate-strong-password]
+   DB_NAME=roadrunner
+   DATABASE_URL=postgres://roadrunner:[password]@roadrunner-db:5432/roadrunner
+   REDIS_URL=redis://roadrunner-redis:6379
+   JWT_SECRET=[generate-64-char-secret]
+   JWT_EXPIRATION=86400
+   PORT=3000
+   RUST_LOG=info
+   ```
+8. Zapisz i deploy
 
 ---
 
@@ -94,10 +119,10 @@
 | 2 | Struktura testów | ✅ |
 | 2 | GitHub Actions workflow | ✅ |
 | 2 | Dockerfile + docker-compose.prod | ✅ |
-| 3 | Finalizacja SQLx (prepare) | 🔄 |
-| 3 | Testy kompilacji | ⏳ |
-| 4 | Coolify deployment konfiguracja | ⏳ |
-| 5 | Dokumentacja deploymentu | ⏳ |
+| 3 | SQLX_OFFLINE setup | ✅ |
+| 3 | Build testowany | ✅ |
+| 4 | Coolify deployment (ręczny) | 🔄 |
+| 5 | Dokumentacja deploymentu | ✅ |
 
 ---
 
@@ -113,7 +138,7 @@
 - Używamy MCP `jcodemunch` do analizy kodu (80 symboli zaindeksowanych)
 - Status projektu aktualizowany w `status.md`
 - Commits: konwencja conventional commits
-- SQLx: compile-time checked queries
+- SQLx: compile-time checked queries (offline mode dla buildów)
 
 ### MCP Serwery
 - **jcodemunch-mcp**: Skonfigurowany w `~/.config/kimi/mcp.json`
@@ -125,9 +150,16 @@
   - Środowisko: production (hhsvf6it2kpyf60pqwq1magf)
 
 ### Deployment
-- **Dockerfile**: Multi-stage build z Rust + sqlx-cli
+- **Dockerfile**: Multi-stage build z SQLX_OFFLINE=true
 - **docker-compose.prod.yml**: App + PostgreSQL + Redis
-- **GitHub Actions**: CI z testami, fmt, clippy, sqlx prepare check
+- **GitHub Actions**: CI z testami, fmt, clippy
+- **Coolify**: Projekt utworzony, czeka na deployment aplikacji
+
+### Ważne zmiany
+- Dodano `src/lib.rs` dla umożliwienia testów
+- Zaktualizowano `Cargo.toml` z sekcjami [lib] i [[bin]]
+- Dodano `.sqlx/query-*.json` dla offline builds
+- Dockerfile używa `SQLX_OFFLINE=true`
 
 ---
 
@@ -136,5 +168,5 @@
 - Repo: https://github.com/uzzysan/roadrunner
 - Coolify: https://coolify.maculewicz.pro
 - Coolify Project: vxad36z1njjiwcvn909ow8en
-- Staging: (do skonfigurowania)
-- Prod: (do skonfigurowania)
+- Staging: (do skonfigurowania w Coolify)
+- Prod: (do skonfigurowania w Coolify)

@@ -3,7 +3,6 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::websocket::state::{WsState, ClientType, GpsBroadcast};
-use crate::models::gps::GpsUpdateRequest;
 
 /// Przetwórz wiadomość od klienta
 pub async fn process_message(

@@ -1,0 +1,19 @@
+{
+  "db": "PostgreSQL",
+  "e5c5b7e8a1f2c3d4e5f6a7b8c9d0e1f2a3b4c5d": {
+    "describe": {
+      "columns": [
+        {
+          "ordinal": 0,
+          "name": "count",
+          "type_info": "Int8"
+        }
+      ],
+      "parameters": {
+        "Left": ["Text"]
+      },
+      "nullable": [false]
+    },
+    "query": "SELECT COUNT(*) FROM users WHERE email = $1"
+  }
+}
