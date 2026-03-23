@@ -1,9 +1,3 @@
-mod auth;
-mod config;
-mod handlers;
-mod models;
-mod websocket;
-
 use axum::{
     routing::{get, post},
     Router,
@@ -13,8 +7,8 @@ use std::sync::Arc;
 use tracing::{info, Level};
 use tracing_subscriber;
 
-use crate::config::Config;
-use crate::websocket::state::WsState;
+use roadrunner::config::Config;
+use roadrunner::websocket::state::WsState;
 
 #[tokio::main]
 async fn main() {
@@ -40,13 +34,13 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(health_check))
-        .route("/ws", get(websocket::ws_handler))
+        .route("/ws", get(roadrunner::websocket::ws_handler))
         .with_state(ws_state.clone())
-        .route("/auth/register", post(handlers::auth::register))
-        .route("/auth/login", post(handlers::auth::login))
+        .route("/auth/register", post(roadrunner::handlers::auth::register))
+        .route("/auth/login", post(roadrunner::handlers::auth::login))
         .with_state(pool);
 
-    let addr = format!("0.0.0.0:3000");
+    let addr = format!("0.0.0.0:{}", config.port);
     info!("Listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();

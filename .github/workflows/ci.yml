@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_VERSION: 0.7.3
+  SQLX_FEATURES: native-tls,postgres
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: roadrunner
+          POSTGRES_PASSWORD: roadrunner_test
+          POSTGRES_DB: roadrunner_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-action@stable
+
+    - name: Cache cargo dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install sqlx-cli
+      run: |
+        cargo install sqlx-cli --version=${{ env.SQLX_VERSION }} --features=${{ env.SQLX_FEATURES }} --no-default-features --locked
+
+    - name: Run migrations
+      env:
+        DATABASE_URL: postgres://roadrunner:roadrunner_test@localhost:5432/roadrunner_test
+      run: |
+        sqlx migrate run
+
+    - name: Check SQLx query data
+      env:
+        DATABASE_URL: postgres://roadrunner:roadrunner_test@localhost:5432/roadrunner_test
+      run: |
+        cargo sqlx prepare --check
+
+    - name: Run tests
+      env:
+        DATABASE_URL: postgres://roadrunner:roadrunner_test@localhost:5432/roadrunner_test
+        JWT_SECRET: test-secret-key-for-ci
+      run: cargo test --verbose
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-action@stable
+    - run: cargo fmt --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-action@stable
+    - run: cargo clippy -- -D warnings
