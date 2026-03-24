@@ -21,6 +21,9 @@ COPY migrations ./migrations
 # Build release binary
 RUN cargo build --release
 
+# Install sqlx-cli in builder stage
+RUN cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres
+
 # Runtime stage
 FROM debian:bookworm-slim
 
@@ -32,11 +35,10 @@ RUN apt-get update && apt-get install -y \
     libssl3 \
     libpq5 \
     postgresql-client \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Download pre-compiled sqlx-cli
-RUN curl -L https://github.com/launchbadge/sqlx/releases/download/v0.7.3/sqlx-cli-v0.7.3-x86_64-unknown-linux-gnu.tar.gz | tar xz -C /usr/local/bin
+# Copy sqlx-cli from builder
+COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 
 # Copy binary from builder
 COPY --from=builder /app/target/release/roadrunner /app/roadrunner
