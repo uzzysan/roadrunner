@@ -21,8 +21,8 @@ COPY .sqlx ./.sqlx
 COPY src ./src
 COPY migrations ./migrations
 
-# Set offline mode for sqlx
-ENV SQLX_OFFLINE=true
+# Note: SQLX_OFFLINE not needed if not using query! macros
+# ENV SQLX_OFFLINE=true
 
 # Build release binary
 RUN cargo build --release
