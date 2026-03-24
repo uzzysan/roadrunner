@@ -8,7 +8,7 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgres://${DB_USER:-roadrunner}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-roadrunner}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRATION=${JWT_EXPIRATION:-86400}
       - PORT=${PORT:-3000}
