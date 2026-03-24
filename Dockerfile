@@ -58,4 +58,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
 # Run migrations and start app
-CMD ["/bin/sh", "-c", "sqlx migrate run && /app/roadrunner"]
+CMD ["/bin/sh", "-c", "until pg_isready -h postgres -U ${DB_USER:-roadrunner}; do echo 'Waiting for postgres...'; sleep 2; done; sqlx migrate run && /app/roadrunner"]
