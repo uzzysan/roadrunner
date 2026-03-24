@@ -11,17 +11,13 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy manifests
-COPY Cargo.toml Cargo.lock ./
+# Copy all source code at once
+COPY . .
 
-# Copy source code
-COPY src ./src
-COPY migrations ./migrations
-
-# Build release binary
+# Build release binary (with all dependencies)
 RUN cargo build --release
 
-# Install sqlx-cli in builder stage
+# Install sqlx-cli
 RUN cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres
 
 # Runtime stage
