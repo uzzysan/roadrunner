@@ -1,7 +1,7 @@
 # Rust
 /target
 **/*.rs.bk
-Cargo.lock
+# Cargo.lock - DO NOT IGNORE for binary applications (needed for reproducible builds)
 
 # Environment
 .env
