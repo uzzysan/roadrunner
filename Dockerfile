@@ -3,7 +3,7 @@ FROM rust:1.75-slim-bookworm as builder
 
 WORKDIR /app
 
-# Install dependencies (build tools + PostgreSQL dev libs)
+# Install dependencies
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
@@ -12,10 +12,6 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
-
-# Install sqlx-cli using binstall (faster) or cargo install with retry
-RUN cargo install sqlx-cli --no-default-features --features native-tls,postgres \
-    || (sleep 5 && cargo install sqlx-cli --no-default-features --features native-tls,postgres)
 
 # Copy manifests
 COPY Cargo.toml Cargo.lock ./
@@ -45,14 +41,14 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Download pre-compiled sqlx-cli instead of building
+RUN curl -L https://github.com/launchbadge/sqlx/releases/download/v0.7.3/sqlx-cli-v0.7.3-x86_64-unknown-linux-musl.tar.gz | tar xz -C /usr/local/bin
+
 # Copy binary from builder
 COPY --from=builder /app/target/release/roadrunner /app/roadrunner
 
 # Copy migrations
 COPY --from=builder /app/migrations /app/migrations
-
-# Copy sqlx-cli for migrations
-COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 
 # Expose port
 EXPOSE 3000
