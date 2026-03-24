@@ -1,25 +1,26 @@
-FROM rust:1.75-slim-bookworm
+FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    libpq-dev \
-    build-essential \
+    ca-certificates \
+    libssl3 \
+    libpq5 \
     postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy source code
-COPY . .
+# Download sqlx-cli
+RUN curl -L https://github.com/launchbadge/sqlx/releases/download/v0.7.3/sqlx-cli-v0.7.3-x86_64-unknown-linux-gnu.tar.gz | tar xz -C /usr/local/bin || \
+    (apt-get update && apt-get install -y cargo && cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres)
 
-# Build release binary
-RUN cargo build --release
+# Copy pre-built binary
+COPY bin/roadrunner /app/roadrunner
+RUN chmod +x /app/roadrunner
 
-# Install sqlx-cli
-RUN cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres
+# Copy migrations
+COPY migrations /app/migrations
 
 # Expose port
 EXPOSE 3000
@@ -29,4 +30,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
 # Run migrations and start app
-CMD ["/bin/sh", "-c", "until pg_isready -h postgres -U ${DB_USER:-roadrunner}; do echo 'Waiting for postgres...'; sleep 2; done; sqlx migrate run && /app/target/release/roadrunner"]
+CMD ["/bin/sh", "-c", "until pg_isready -h postgres -U ${DB_USER:-roadrunner}; do echo 'Waiting for postgres...'; sleep 2; done; sqlx migrate run && /app/roadrunner"]
