@@ -42,7 +42,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Download pre-compiled sqlx-cli instead of building
-RUN curl -L https://github.com/launchbadge/sqlx/releases/download/v0.7.3/sqlx-cli-v0.7.3-x86_64-unknown-linux-musl.tar.gz | tar xz -C /usr/local/bin
+RUN curl -L https://github.com/launchbadge/sqlx/releases/download/v0.7.3/sqlx-cli-v0.7.3-x86_64-unknown-linux-gnu.tar.gz | tar xz -C /usr/local/bin
 
 # Copy binary from builder
 COPY --from=builder /app/target/release/roadrunner /app/roadrunner
