@@ -26,7 +26,7 @@ COPY . .
 
 # Build the real binary (forced to build offline using .sqlx)
 ENV SQLX_OFFLINE=true
-RUN touch src/main.rs \
+RUN cargo clean -p roadrunner \
     && cargo build --release
 
 # Stage 2: Minimal runtime image
