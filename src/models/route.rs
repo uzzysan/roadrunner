@@ -1,40 +1,60 @@
+//! Model trasy linii autobusowej (Route)
+//!
+//! Przechowuje informacje o liniach autobusowych wraz z ich kolorystyką.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-/// Trasa autobusowa/tramwajowa
+/// Paleta kolorów dla linii autobusowych
+/// Kolory są dobrane dla dobrej widoczności na mapie i w interfejsie
+pub const ROUTE_COLORS: &[&str] = &[
+    "#2563EB", // Niebieski
+    "#EF4444", // Czerwony
+    "#10B981", // Zielony
+    "#F59E0B", // Żółty/Pomarańczowy
+    "#8B5CF6", // Fioletowy
+    "#EC4899", // Różowy
+    "#06B6D4", // Cyjan
+    "#84CC16", // Limonkowy
+    "#F97316", // Pomarańczowy
+    "#6366F1", // Indygo
+    "#14B8A6", // Teal
+    "#EAB308", // Żółty
+];
+
+/// Zwraca kolor dla linii na podstawie numeru
+/// Używa hashowania dla deterministycznego przypisania koloru
+pub fn get_route_color(number: &str) -> &'static str {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    let mut hasher = DefaultHasher::new();
+    number.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    ROUTE_COLORS[(hash as usize) % ROUTE_COLORS.len()]
+}
+
+/// Model trasy w bazie danych
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct Route {
     pub id: Uuid,
-    /// Nazwa trasy (np. "Linia 175")
+    /// Pełna nazwa linii np. "Linia 175"
     pub name: String,
-    /// Numer linii (np. "175")
+    /// Numer linii np. "175", "N01", "Z-2"
     pub number: String,
-    /// Opis trasy (np. "Centrum - Lotnisko")
+    /// Opis trasy np. "Wilanów - Plac Wilsona"
     pub description: String,
-    /// Kolor linii (HEX, np. "#2563EB")
+    /// Kolor linii w formacie HEX np. "#2563EB"
     pub color: String,
-    /// Czy trasa jest aktywna
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
 }
 
-/// Przystanek na trasie (z kolejnością)
-#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
-pub struct RouteStop {
-    pub id: Uuid,
-    pub route_id: Uuid,
-    pub stop_id: Uuid,
-    /// Kolejność przystanku na trasie (1, 2, 3, ...)
-    pub stop_order: i32,
-    /// Nazwa przystanku (dla JOIN queries)
-    #[sqlx(skip)]
-    pub stop_name: Option<String>,
-}
-
-/// Response z trasą
-#[derive(Debug, Serialize)]
+/// Response API dla trasy
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RouteResponse {
     pub id: Uuid,
     pub name: String,
@@ -42,59 +62,7 @@ pub struct RouteResponse {
     pub description: String,
     pub color: String,
     pub is_active: bool,
-    /// Liczba przystanków na trasie
-    pub stops_count: Option<i64>,
-}
-
-/// Response z trasą i wszystkimi przystankami
-#[derive(Debug, Serialize)]
-pub struct RouteWithStopsResponse {
-    #[serde(flatten)]
-    pub route: RouteResponse,
-    pub stops: Vec<RouteStopDetail>,
-}
-
-/// Szczegóły przystanku na trasie
-#[derive(Debug, Serialize)]
-pub struct RouteStopDetail {
-    pub stop_id: Uuid,
-    pub stop_name: String,
-    pub stop_order: i32,
-    pub latitude: f64,
-    pub longitude: f64,
-}
-
-/// Request tworzenia trasy
-#[derive(Debug, Deserialize)]
-pub struct CreateRouteRequest {
-    pub name: String,
-    pub number: String,
-    pub description: String,
-    pub color: Option<String>, // domyślnie #2563EB
-}
-
-/// Request aktualizacji trasy
-#[derive(Debug, Deserialize)]
-pub struct UpdateRouteRequest {
-    pub name: Option<String>,
-    pub number: Option<String>,
-    pub description: Option<String>,
-    pub color: Option<String>,
-    pub is_active: Option<bool>,
-}
-
-/// Request dodania przystanku do trasy
-#[derive(Debug, Deserialize)]
-pub struct AddStopToRouteRequest {
-    pub stop_id: Uuid,
-    pub stop_order: i32,
-}
-
-/// Request wyszukiwania tras
-#[derive(Debug, Deserialize)]
-pub struct SearchRoutesRequest {
-    pub query: String,
-    pub limit: Option<i64>,
+    pub created_at: DateTime<Utc>,
 }
 
 impl From<Route> for RouteResponse {
@@ -106,33 +74,70 @@ impl From<Route> for RouteResponse {
             description: route.description,
             color: route.color,
             is_active: route.is_active,
-            stops_count: None, // Wypełniane osobno
+            created_at: route.created_at,
         }
     }
 }
 
-/// Domyślny kolor dla nowych tras
-pub const DEFAULT_ROUTE_COLOR: &str = "#2563EB";
+/// Trasa z listą przystanków
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RouteWithStops {
+    #[serde(flatten)]
+    pub route: RouteResponse,
+    pub stops: Vec<StopInRoute>,
+}
 
-/// Lista predefiniowanych kolorów dla tras
-pub const ROUTE_COLORS: &[&str] = &[
-    "#2563EB", // Niebieski
-    "#EF4444", // Czerwony
-    "#10B981", // Zielony
-    "#F59E0B", // Żółty
-    "#8B5CF6", // Fioletowy
-    "#EC4899", // Różowy
-    "#06B6D4", // Cyjan
-    "#84CC16", // Limonkowy
-];
+/// Przystanek w ramach trasy
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct StopInRoute {
+    pub id: Uuid,
+    pub name: String,
+    pub longitude: f64,
+    pub latitude: f64,
+    /// Kolejność przystanku w trasie
+    pub stop_order: i32,
+    /// Czy przystanek jest opcjonalny (na żądanie)
+    pub is_optional: bool,
+}
 
-/// Zwraca losowy kolor z palety
-pub fn get_random_route_color() -> &'static str {
-    use rand::seq::SliceRandom;
-    use rand::thread_rng;
+/// Request do tworzenia nowej trasy
+#[derive(Debug, Deserialize)]
+pub struct CreateRouteRequest {
+    pub name: String,
+    pub number: String,
+    pub description: String,
+    /// Opcjonalny kolor (jeśli nie podany, zostanie wygenerowany)
+    pub color: Option<String>,
+}
 
-    let mut rng = thread_rng();
-    ROUTE_COLORS.choose(&mut rng).unwrap_or(&DEFAULT_ROUTE_COLOR)
+/// Request do aktualizacji trasy
+#[derive(Debug, Deserialize)]
+pub struct UpdateRouteRequest {
+    pub name: Option<String>,
+    pub number: Option<String>,
+    pub description: Option<String>,
+    pub color: Option<String>,
+    pub is_active: Option<bool>,
+}
+
+/// Request do dodania przystanku do trasy
+#[derive(Debug, Deserialize)]
+pub struct AddStopToRouteRequest {
+    pub stop_id: Uuid,
+    pub stop_order: i32,
+    pub is_optional: Option<bool>,
+}
+
+/// Request do aktualizacji kolejności przystanków
+#[derive(Debug, Deserialize)]
+pub struct ReorderStopsRequest {
+    pub stop_orders: Vec<StopOrder>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StopOrder {
+    pub stop_id: Uuid,
+    pub new_order: i32,
 }
 
 #[cfg(test)]
@@ -140,12 +145,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_default_route_color() {
-        assert_eq!(DEFAULT_ROUTE_COLOR, "#2563EB");
+    fn test_get_route_color_deterministic() {
+        // Ten sam numer zawsze zwraca ten sam kolor
+        let color1 = get_route_color("175");
+        let color2 = get_route_color("175");
+        assert_eq!(color1, color2);
     }
 
     #[test]
-    fn test_route_colors_count() {
-        assert_eq!(ROUTE_COLORS.len(), 8);
+    fn test_get_route_color_different() {
+        // Różne numery mogą (ale nie muszą) mieć różne kolory
+        let color1 = get_route_color("175");
+        let color2 = get_route_color("N01");
+        // W praktyce prawdopodobieństwo kolizji jest małe dla 12 kolorów
+        // ale nie możemy tego zagwarantować w teście
+        assert!(!color1.is_empty());
+        assert!(!color2.is_empty());
+    }
+
+    #[test]
+    fn test_route_colors_valid_hex() {
+        for color in ROUTE_COLORS {
+            assert!(color.starts_with('#'));
+            assert_eq!(color.len(), 7); // #RRGGBB
+        }
     }
 }
