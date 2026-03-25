@@ -399,3 +399,117 @@ pub async fn disable_mfa(
         message: "MFA disabled successfully".to_string(),
     }))
 }
+
+// ==================== TOKEN REFRESH & LOGOUT ====================
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RefreshTokenRequest {
+    pub refresh_token: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct RefreshTokenResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expires_in: i64,
+}
+
+/// Odświeża access token używając refresh tokena
+/// 
+/// # Endpoint
+/// POST /auth/refresh
+/// 
+/// # Request
+/// ```json
+/// {
+///   "refresh_token": "eyJ..."
+/// }
+/// ```
+/// 
+/// # Response
+/// ```json
+/// {
+///   "access_token": "eyJ...",
+///   "refresh_token": "eyJ...",
+///   "expires_in": 86400
+/// }
+/// ```
+pub async fn refresh_token(
+    State(state): State<AppState>,
+    Json(req): Json<RefreshTokenRequest>,
+) -> AppResult<Json<RefreshTokenResponse>> {
+    // Weryfikuj refresh token
+    let claims = crate::auth::jwt::decode_token(&req.refresh_token, &state.config.jwt_secret)
+        .map_err(|_| AppError::Unauthorized("Invalid refresh token".to_string()))?;
+
+    // Sprawdź czy użytkownik istnieje
+    let user = sqlx::query_as!(
+        crate::models::user::User,
+        r#"
+        SELECT id, email, password_hash, first_name, last_name, phone, 
+               role as "role: UserRole", mfa_enabled, mfa_secret, created_at, updated_at
+        FROM users 
+        WHERE id = $1
+        "#,
+        claims.sub
+    )
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
+
+    // Generuj nową parę tokenów
+    let token_pair = generate_token_pair(user.id, user.role.clone(), &state.config)
+        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
+
+    Ok(Json(RefreshTokenResponse {
+        access_token: token_pair.access_token,
+        refresh_token: token_pair.refresh_token,
+        expires_in: token_pair.expires_in,
+    }))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct LogoutRequest {
+    pub refresh_token: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct LogoutResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+/// Wylogowuje użytkownika (unieważnia refresh token)
+/// 
+/// # Endpoint
+/// POST /auth/logout
+/// 
+/// # Request
+/// ```json
+/// {
+///   "refresh_token": "eyJ..."
+/// }
+/// ```
+/// 
+/// # Response
+/// ```json
+/// {
+///   "success": true,
+///   "message": "Logged out successfully"
+/// }
+/// ```
+/// 
+/// # Uwaga
+/// W pełnej implementacji należy dodać blacklistę tokenów (Redis)
+pub async fn logout(
+    State(_state): State<AppState>,
+    Json(_req): Json<LogoutRequest>,
+) -> AppResult<Json<LogoutResponse>> {
+    // TODO: Dodanie tokenu do blacklisty (Redis)
+    // Na razie tylko zwracamy sukces - klient powinien usunąć tokeny
+
+    Ok(Json(LogoutResponse {
+        success: true,
+        message: "Logged out successfully".to_string(),
+    }))
+}
