@@ -18,7 +18,7 @@ RoadRunner to system transportowy z modułem szkolnym, GPS trackingiem, biletami
 |------|-------|--------|--------|-----------|
 | 0 | Infrastruktura | 🟢 Zakończona | 100% | 1 dzień |
 | 1 | Auth v2 | 🟢 Zakończona | 100% | 2 dni | ✅
-| 2 | System biletowy QR | 🔴 Nie rozpoczęta | 0% | 1 tydzień |
+| 2 | System biletowy QR | 🟡 W trakcie | 60% | 1 tydzień |
 | 3 | Płatności Stripe | 🔴 Nie rozpoczęta | 0% | 3-4 dni |
 | 4 | GPS v2 | 🔴 Nie rozpoczęta | 0% | 1 tydzień |
 | 5 | Moduł szkolny | 🔴 Nie rozpoczęta | 0% | 1 tydzień |
@@ -152,6 +152,19 @@ RoadRunner to system transportowy z modułem szkolnym, GPS trackingiem, biletami
 - [x] MapScreen
 - [x] TicketsScreen
 - [x] ProfileScreen with logout
+
+### Faza 2 - System biletowy QR (60%) 🟡
+- [x] Model biletów (Ticket, TicketType, TicketStatus)
+- [x] Migracja bazy danych
+- [x] Generowanie kodów QR
+- [x] Handlery CRUD
+- [x] Walidacja biletów (skanowanie)
+- [ ] Testy integracyjne
+- [ ] Integracja z płatnościami
+- [ ] Mobile - ekran zakupu
+- [ ] Mobile - QR scanner
+
+**PR**: #5 - Phase 2: Ticket System
 
 ---
 
