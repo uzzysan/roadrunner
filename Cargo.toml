@@ -36,6 +36,7 @@ config = "0.14"
 totp-rs = { version = "5.0", features = ["qr"] }
 qrcode = "0.14"
 base64 = "0.22"
+async-stripe = { version = "0.39", default-features = false, features = ["runtime-tokio-hyper"] }
 
 [dev-dependencies]
 tokio-test = "0.4"
