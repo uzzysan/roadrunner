@@ -1,0 +1,34 @@
+{
+  "app": {
+    "name": "RoadRunner",
+    "tagline": "System Transportu Zbiorowego i Szkolnego"
+  },
+  "common": {
+    "loading": "Ładowanie...",
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "delete": "Usuń",
+    "edit": "Edytuj",
+    "create": "Utwórz",
+    "search": "Szukaj",
+    "filter": "Filtruj",
+    "next": "Dalej",
+    "back": "Wstecz",
+    "close": "Zamknij",
+    "success": "Sukces",
+    "error": "Błąd",
+    "warning": "Ostrzeżenie",
+    "info": "Informacja",
+    "yes": "Tak",
+    "no": "Nie",
+    "confirm": "Potwierdź"
+  },
+  "navigation": {
+    "home": "Strona główna",
+    "map": "Mapa",
+    "tickets": "Bilety",
+    "profile": "Profil",
+    "settings": "Ustawienia",
+    "logout": "Wyloguj się"
+  }
+}
