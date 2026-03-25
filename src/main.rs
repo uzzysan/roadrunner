@@ -53,6 +53,11 @@ async fn main() {
         // Token Refresh & Logout
         .route("/auth/refresh", post(roadrunner::handlers::auth::refresh_token))
         .route("/auth/logout", post(roadrunner::handlers::auth::logout))
+        // Tickets
+        .route("/tickets", post(roadrunner::handlers::tickets::create_ticket))
+        .route("/tickets", get(roadrunner::handlers::tickets::list_tickets))
+        .route("/tickets/:id", get(roadrunner::handlers::tickets::get_ticket))
+        .route("/tickets/validate", post(roadrunner::handlers::tickets::validate_ticket))
         .with_state(app_state);
 
     let addr = format!("0.0.0.0:{}", app_state.config.port);
