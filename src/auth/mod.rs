@@ -1,4 +1,5 @@
 pub mod jwt;
+pub mod mfa;
 pub mod password;
 
 use axum::{
@@ -11,6 +12,7 @@ use jsonwebtoken::{decode, DecodingKey, Validation};
 use std::sync::Arc;
 
 use crate::config::Config;
+use crate::state::AppState;
 
 #[derive(Debug, Clone)]
 pub struct CurrentUser {
@@ -19,9 +21,18 @@ pub struct CurrentUser {
     pub role: crate::models::user::UserRole,
 }
 
+/// Middleware autentykacji - weryfikuje JWT token
+/// 
+/// # Arguments
+/// * `State(state)` - Stan aplikacji
+/// * `request` - HTTP request
+/// * `next` - Next middleware/handler
+/// 
+/// # Returns
+/// * `Result<Response, StatusCode>` - Response lub 401 Unauthorized
 pub async fn auth_middleware(
-    State(config): State<Arc<Config>>,
-    request: Request<axum::body::Body>,
+    State(state): State<Arc<AppState>>,
+    mut request: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
     let auth_header = request
@@ -35,7 +46,7 @@ pub async fn auth_middleware(
     };
 
     let validation = Validation::default();
-    let decoding_key = DecodingKey::from_secret(config.jwt_secret.as_bytes());
+    let decoding_key = DecodingKey::from_secret(state.config.jwt_secret.as_bytes());
 
     match decode::<jwt::Claims>(token, &decoding_key, &validation) {
         Ok(token_data) => {
@@ -45,10 +56,42 @@ pub async fn auth_middleware(
                 email: claims.email,
                 role: claims.role,
             };
-            let mut req = request;
-            req.extensions_mut().insert(current_user);
-            Ok(next.run(req).await)
+            request.extensions_mut().insert(current_user);
+            Ok(next.run(request).await)
         }
         Err(_) => Err(StatusCode::UNAUTHORIZED),
     }
+}
+
+/// Middleware wymagający konkretnej roli
+/// 
+/// # Type Parameters
+/// * `F` - Handler function
+/// * `Roles` - Lista dozwolonych ról
+/// 
+/// # Example
+/// ```rust
+/// let admin_routes = Router::new()
+///     .route("/admin/users", get(list_users))
+///     .layer(middleware::from_fn_with_state(
+///         state.clone(),
+///         require_role![UserRole::Admin],
+///     ));
+/// ```
+pub async fn require_role(
+    State(state): State<Arc<AppState>>,
+    request: Request<axum::body::Body>,
+    next: Next,
+    allowed_roles: Vec<crate::models::user::UserRole>,
+) -> Result<Response, StatusCode> {
+    let current_user = request
+        .extensions()
+        .get::<CurrentUser>()
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    if !allowed_roles.contains(&current_user.role) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    Ok(next.run(request).await)
 }
