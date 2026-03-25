@@ -50,6 +50,9 @@ async fn main() {
         .route("/auth/mfa/verify-setup", post(roadrunner::handlers::auth::verify_mfa_setup))
         .route("/auth/mfa/verify-login", post(roadrunner::handlers::auth::verify_mfa_login))
         .route("/auth/mfa/disable", post(roadrunner::handlers::auth::disable_mfa))
+        // Token Refresh & Logout
+        .route("/auth/refresh", post(roadrunner::handlers::auth::refresh_token))
+        .route("/auth/logout", post(roadrunner::handlers::auth::logout))
         .with_state(app_state);
 
     let addr = format!("0.0.0.0:{}", app_state.config.port);
