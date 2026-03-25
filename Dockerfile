@@ -1,3 +1,31 @@
+# Stage 1: Build the Rust binary
+FROM rust:1-slim-bookworm AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Cache dependencies by building a dummy project first
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src \
+    && echo "fn main() { println!(\"dummy\"); }" > src/main.rs \
+    && echo "" > src/lib.rs \
+    && cargo build --release \
+    && rm -rf src
+
+# Copy the actual source code and .sqlx directory
+COPY . .
+
+# Build the real binary (forced to build offline using .sqlx)
+ENV SQLX_OFFLINE=true
+RUN touch src/main.rs \
+    && cargo build --release
+
+# Stage 2: Minimal runtime image
 FROM debian:bookworm-slim
 
 WORKDIR /app
@@ -11,12 +39,12 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Download sqlx-cli
+# Download precompiled sqlx-cli for running migrations
 RUN curl -L https://github.com/launchbadge/sqlx/releases/download/v0.7.3/sqlx-cli-v0.7.3-x86_64-unknown-linux-gnu.tar.gz | tar xz -C /usr/local/bin || \
     (apt-get update && apt-get install -y cargo && cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres)
 
-# Copy pre-built binary
-COPY bin/roadrunner /app/roadrunner
+# Copy the pre-built binary from the builder stage
+COPY --from=builder /app/target/release/roadrunner /app/roadrunner
 RUN chmod +x /app/roadrunner
 
 # Copy migrations
