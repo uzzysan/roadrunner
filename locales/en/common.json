@@ -1,0 +1,34 @@
+{
+  "app": {
+    "name": "RoadRunner",
+    "tagline": "Public and School Transport System"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "next": "Next",
+    "back": "Back",
+    "close": "Close",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Information",
+    "yes": "Yes",
+    "no": "No",
+    "confirm": "Confirm"
+  },
+  "navigation": {
+    "home": "Home",
+    "map": "Map",
+    "tickets": "Tickets",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout"
+  }
+}
