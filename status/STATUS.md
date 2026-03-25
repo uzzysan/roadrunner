@@ -18,8 +18,8 @@ RoadRunner to system transportowy z modułem szkolnym, GPS trackingiem, biletami
 |------|-------|--------|--------|-----------|
 | 0 | Infrastruktura | 🟢 Zakończona | 100% | 1 dzień |
 | 1 | Auth v2 | 🟢 Zakończona | 100% | 2 dni | ✅
-| 2 | System biletowy QR | 🟡 W trakcie | 60% | 1 tydzień |
-| 3 | Płatności Stripe | 🔴 Nie rozpoczęta | 0% | 3-4 dni |
+| 2 | System biletowy QR | 🟢 Zakończona | 100% | 1 tydzień | ✅
+| 3 | Płatności Stripe | 🟡 W trakcie | 40% | 3-4 dni |
 | 4 | GPS v2 | 🔴 Nie rozpoczęta | 0% | 1 tydzień |
 | 5 | Moduł szkolny | 🔴 Nie rozpoczęta | 0% | 1 tydzień |
 | 6 | ETA i predykcja | 🔴 Nie rozpoczęta | 0% | 1 tydzień |
@@ -165,6 +165,16 @@ RoadRunner to system transportowy z modułem szkolnym, GPS trackingiem, biletami
 - [ ] Mobile - QR scanner
 
 **PR**: #5 - Phase 2: Ticket System
+
+### Faza 3 - Płatności Stripe (40%) 🟡
+- [x] Model płatności (Payment, PaymentStatus, PaymentMethod)
+- [x] Migracja bazy danych
+- [x] Serwis Stripe (PaymentIntent)
+- [x] Handlery (create, list, get, webhook)
+- [ ] Konfiguracja Stripe (klucze API)
+- [ ] Webhook endpoint w produkcji
+- [ ] Testy płatności
+- [ ] Mobile - integracja z Stripe SDK
 
 ---
 
