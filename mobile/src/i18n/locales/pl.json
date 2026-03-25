@@ -1,0 +1,52 @@
+{
+  "navigation": {
+    "home": "Strona główna",
+    "map": "Mapa",
+    "tickets": "Bilety",
+    "profile": "Profil"
+  },
+  "auth": {
+    "login": "Zaloguj się",
+    "register": "Zarejestruj się",
+    "email": "Email",
+    "password": "Hasło",
+    "confirmPassword": "Potwierdź hasło",
+    "firstName": "Imię",
+    "lastName": "Nazwisko",
+    "phone": "Telefon",
+    "forgotPassword": "Zapomniałem hasła",
+    "dontHaveAccount": "Nie masz konta?",
+    "alreadyHaveAccount": "Masz już konto?",
+    "createAccount": "Utwórz konto",
+    "loginButton": "Zaloguj",
+    "registerButton": "Zarejestruj",
+    "mfaTitle": "Weryfikacja dwuetapowa",
+    "mfaDescription": "Wprowadź kod z aplikacji uwierzytelniającej",
+    "mfaCode": "Kod weryfikacyjny",
+    "verify": "Zweryfikuj"
+  },
+  "validation": {
+    "emailRequired": "Email jest wymagany",
+    "emailInvalid": "Nieprawidłowy format email",
+    "passwordRequired": "Hasło jest wymagane",
+    "passwordMin": "Hasło musi mieć minimum {{min}} znaków",
+    "passwordMatch": "Hasła muszą się zgadzać",
+    "firstNameRequired": "Imię jest wymagane",
+    "lastNameRequired": "Nazwisko jest wymagane"
+  },
+  "errors": {
+    "invalidCredentials": "Nieprawidłowe dane logowania",
+    "somethingWentWrong": "Coś poszło nie tak",
+    "tryAgain": "Spróbuj ponownie"
+  },
+  "common": {
+    "loading": "Ładowanie...",
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "delete": "Usuń",
+    "edit": "Edytuj",
+    "close": "Zamknij",
+    "success": "Sukces",
+    "error": "Błąd"
+  }
+}
