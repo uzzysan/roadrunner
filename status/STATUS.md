@@ -17,7 +17,7 @@ RoadRunner to system transportowy z modułem szkolnym, GPS trackingiem, biletami
 | Faza | Nazwa | Status | Postęp | Estymacja |
 |------|-------|--------|--------|-----------|
 | 0 | Infrastruktura | 🟢 Zakończona | 100% | 1 dzień |
-| 1 | Auth v2 | 🔴 Nie rozpoczęta | 0% | 1 tydzień |
+| 1 | Auth v2 | 🟢 Zakończona | 100% | 2 dni |
 | 2 | System biletowy QR | 🔴 Nie rozpoczęta | 0% | 1 tydzień |
 | 3 | Płatności Stripe | 🔴 Nie rozpoczęta | 0% | 3-4 dni |
 | 4 | GPS v2 | 🔴 Nie rozpoczęta | 0% | 1 tydzień |
@@ -139,6 +139,19 @@ RoadRunner to system transportowy z modułem szkolnym, GPS trackingiem, biletami
 3. **Desktop**: Tauri (zamiast Electron) ✅
 4. **i18n**: i18next (frontend), fluent (backend - do potwierdzenia) ✅
 5. **Design**: Tailwind CSS + Design System ✅
+
+### Mobile Setup (100%) ✅
+- [x] React Native + Expo
+- [x] Navigation (Stack + Bottom Tabs)
+- [x] Zustand store with persist
+- [x] i18n (PL/EN)
+- [x] API client (Axios + interceptors)
+- [x] LoginScreen with MFA
+- [x] RegisterScreen
+- [x] HomeScreen
+- [x] MapScreen
+- [x] TicketsScreen
+- [x] ProfileScreen with logout
 
 ---
 
