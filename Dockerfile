@@ -9,6 +9,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# Install sqlx-cli for running migrations
+# This layer will be highly cached by Docker
+RUN cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres
+
 # Cache dependencies by building a dummy project first
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src \
@@ -39,13 +43,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Download precompiled sqlx-cli for running migrations
-RUN curl -L https://github.com/launchbadge/sqlx/releases/download/v0.7.3/sqlx-cli-v0.7.3-x86_64-unknown-linux-gnu.tar.gz | tar xz -C /usr/local/bin || \
-    (apt-get update && apt-get install -y cargo && cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres)
-
-# Copy the pre-built binary from the builder stage
+# Copy the pre-built binary and sqlx-cli from the builder stage
 COPY --from=builder /app/target/release/roadrunner /app/roadrunner
-RUN chmod +x /app/roadrunner
+COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
+
+RUN chmod +x /app/roadrunner /usr/local/bin/sqlx
 
 # Copy migrations
 COPY migrations /app/migrations
