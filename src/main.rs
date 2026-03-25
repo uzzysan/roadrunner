@@ -8,6 +8,7 @@ use tracing::{info, Level};
 use tracing_subscriber;
 
 use roadrunner::config::Config;
+use roadrunner::state::AppState;
 use roadrunner::websocket::state::WsState;
 
 #[tokio::main]
@@ -19,28 +20,30 @@ async fn main() {
     info!("Starting RoadRunner server...");
 
     let config = Arc::new(Config::from_env());
-    
+
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&config.database_url)
         .await
         .expect("Failed to connect to database");
-    
+
     info!("Connected to database");
-    
+
     let ws_state = Arc::new(WsState::new());
     info!("WebSocket state initialized");
+
+    // Utwórz zunifikowany AppState
+    let app_state = AppState::new(pool, ws_state, config);
 
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(health_check))
         .route("/ws", get(roadrunner::websocket::ws_handler))
-        .with_state(ws_state.clone())
         .route("/auth/register", post(roadrunner::handlers::auth::register))
         .route("/auth/login", post(roadrunner::handlers::auth::login))
-        .with_state(pool);
+        .with_state(app_state);
 
-    let addr = format!("0.0.0.0:{}", config.port);
+    let addr = format!("0.0.0.0:{}", app_state.config.port);
     info!("Listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();

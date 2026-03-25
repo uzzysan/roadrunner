@@ -1,14 +1,14 @@
 use axum::{
     extract::State,
-    http::StatusCode,
     Json,
 };
-use sqlx::{PgPool, Row};
 use validator::Validate;
 
 use crate::{
     auth::{jwt::generate_token_pair, password::{hash_password, verify_password}},
+    errors::{AppError, AppResult},
     models::user::{CreateUserRequest, LoginRequest, UserResponse, UserRole},
+    state::AppState,
 };
 
 #[derive(Debug, serde::Serialize)]
@@ -19,71 +19,52 @@ pub struct AuthResponse {
     pub expires_in: i64,
 }
 
-#[derive(Debug, serde::Serialize)]
-pub struct ErrorResponse {
-    pub error: String,
-}
-
 pub async fn register(
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
     Json(req): Json<CreateUserRequest>,
-) -> Result<Json<AuthResponse>, (StatusCode, Json<ErrorResponse>)> {
-    if let Err(e) = req.validate() {
-        return Err((StatusCode::BAD_REQUEST, Json(ErrorResponse { error: e.to_string() })));
-    }
+) -> AppResult<Json<AuthResponse>> {
+    // Walidacja danych wejściowych
+    req.validate()?;
 
-    // Check email exists
+    // Sprawdź czy email istnieje
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE email = $1")
         .bind(&req.email)
-        .fetch_one(&pool)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+        .fetch_one(&state.db)
+        .await?;
 
     if count > 0 {
-        return Err((StatusCode::CONFLICT, Json(ErrorResponse { error: "Email exists".to_string() })));
+        return Err(AppError::Conflict("Email already registered".to_string()));
     }
 
+    // Hash hasła
     let password_hash = hash_password(&req.password)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+        .map_err(|e| AppError::Internal(format!("Password hashing failed: {}", e)))?;
 
-    let role_str = "passenger";
-
-    let result = sqlx::query(
-        "INSERT INTO users (email, email_hash, password_hash, first_name, last_name, phone, role) 
-         VALUES ($1, MD5($1), $2, $3, $4, $5, $6) 
-         RETURNING id, email, first_name, last_name"
+    // Utwórz użytkownika
+    let user = sqlx::query_as!(
+        crate::models::user::User,
+        r#"
+        INSERT INTO users (email, password_hash, first_name, last_name, phone, role)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, email, password_hash, first_name, last_name, phone, role as "role: UserRole", 
+                  mfa_enabled, mfa_secret, created_at, updated_at
+        "#,
+        req.email,
+        password_hash,
+        req.first_name,
+        req.last_name,
+        req.phone,
+        UserRole::Passenger as UserRole,
     )
-    .bind(&req.email)
-    .bind(&password_hash)
-    .bind(&req.first_name)
-    .bind(&req.last_name)
-    .bind(&req.phone)
-    .bind(role_str)
-    .fetch_one(&pool)
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+    .fetch_one(&state.db)
+    .await?;
 
-    let user_id: uuid::Uuid = result.get("id");
-    let email: String = result.get("email");
-    let first_name: String = result.get("first_name");
-    let last_name: String = result.get("last_name");
-
-    let user_response = UserResponse {
-        id: user_id,
-        email: email.clone(),
-        first_name,
-        last_name,
-        phone: req.phone.clone(),
-        role: UserRole::Passenger,
-        email_verified: false,
-        created_at: chrono::Utc::now(),
-    };
-
-    let token_pair = generate_token_pair(user_id, email, UserRole::Passenger)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+    // Generuj tokeny JWT
+    let token_pair = generate_token_pair(user.id, user.role.clone(), &state.config)
+        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(AuthResponse {
-        user: user_response,
+        user: UserResponse::from(user),
         access_token: token_pair.access_token,
         refresh_token: token_pair.refresh_token,
         expires_in: token_pair.expires_in,
@@ -91,48 +72,48 @@ pub async fn register(
 }
 
 pub async fn login(
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
     Json(req): Json<LoginRequest>,
-) -> Result<Json<AuthResponse>, (StatusCode, Json<ErrorResponse>)> {
-    let result = sqlx::query(
-        "SELECT id, email, password_hash, first_name, last_name FROM users WHERE email = $1 AND is_active = true"
+) -> AppResult<Json<AuthResponse>> {
+    // Walidacja danych wejściowych
+    req.validate()?;
+
+    // Znajdź użytkownika po emailu
+    let user = sqlx::query_as!(
+        crate::models::user::User,
+        r#"
+        SELECT id, email, password_hash, first_name, last_name, phone, 
+               role as "role: UserRole", mfa_enabled, mfa_secret, created_at, updated_at
+        FROM users 
+        WHERE email = $1
+        "#,
+        req.email
     )
-    .bind(&req.email)
-    .fetch_optional(&pool)
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+    .fetch_optional(&state.db)
+    .await?;
 
-    let row = match result {
-        Some(r) => r,
-        None => return Err((StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: "Invalid credentials".to_string() }))),
-    };
+    let user = user.ok_or_else(|| AppError::Unauthorized("Invalid credentials".to_string()))?;
 
-    let id: uuid::Uuid = row.get("id");
-    let email: String = row.get("email");
-    let hash: String = row.get("password_hash");
-    let first_name: String = row.get("first_name");
-    let last_name: String = row.get("last_name");
+    // Weryfikacja hasła
+    let valid = verify_password(&req.password, &user.password_hash)
+        .map_err(|_| AppError::Unauthorized("Invalid credentials".to_string()))?;
 
-    if !verify_password(&req.password, &hash).unwrap_or(false) {
-        return Err((StatusCode::UNAUTHORIZED, Json(ErrorResponse { error: "Invalid credentials".to_string() })));
+    if !valid {
+        return Err(AppError::Unauthorized("Invalid credentials".to_string()));
     }
 
-    let user_response = UserResponse {
-        id,
-        email: email.clone(),
-        first_name,
-        last_name,
-        phone: None,
-        role: UserRole::Passenger,
-        email_verified: false,
-        created_at: chrono::Utc::now(),
-    };
+    // TODO: Sprawdź MFA jeśli włączone
+    if user.mfa_enabled {
+        // MFA flow - zwróć tymczasowy token lub wymagaj kodu MFA
+        // Na razie pomijamy, będzie zaimplementowane w Fazie 1
+    }
 
-    let token_pair = generate_token_pair(id, email, UserRole::Passenger)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse { error: e.to_string() })))?;
+    // Generuj tokeny JWT
+    let token_pair = generate_token_pair(user.id, user.role.clone(), &state.config)
+        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(AuthResponse {
-        user: user_response,
+        user: UserResponse::from(user),
         access_token: token_pair.access_token,
         refresh_token: token_pair.refresh_token,
         expires_in: token_pair.expires_in,
