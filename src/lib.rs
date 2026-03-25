@@ -6,3 +6,4 @@ pub mod models;
 pub mod state;
 pub mod websocket;
 pub mod tickets;
+pub mod payments;
