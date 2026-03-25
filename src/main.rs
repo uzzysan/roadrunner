@@ -35,12 +35,21 @@ async fn main() {
     // Utwórz zunifikowany AppState
     let app_state = AppState::new(pool, ws_state, config);
 
+    // Konfiguracja routingu
     let app = Router::new()
+        // Health check
         .route("/", get(root))
         .route("/health", get(health_check))
+        // WebSocket
         .route("/ws", get(roadrunner::websocket::ws_handler))
+        // Auth
         .route("/auth/register", post(roadrunner::handlers::auth::register))
         .route("/auth/login", post(roadrunner::handlers::auth::login))
+        // MFA
+        .route("/auth/mfa/setup", post(roadrunner::handlers::auth::setup_mfa))
+        .route("/auth/mfa/verify-setup", post(roadrunner::handlers::auth::verify_mfa_setup))
+        .route("/auth/mfa/verify-login", post(roadrunner::handlers::auth::verify_mfa_login))
+        .route("/auth/mfa/disable", post(roadrunner::handlers::auth::disable_mfa))
         .with_state(app_state);
 
     let addr = format!("0.0.0.0:{}", app_state.config.port);
