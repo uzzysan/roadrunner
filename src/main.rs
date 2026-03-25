@@ -58,6 +58,12 @@ async fn main() {
         .route("/tickets", get(roadrunner::handlers::tickets::list_tickets))
         .route("/tickets/:id", get(roadrunner::handlers::tickets::get_ticket))
         .route("/tickets/validate", post(roadrunner::handlers::tickets::validate_ticket))
+        // Payments
+        .route("/payments", post(roadrunner::handlers::payments::create_payment))
+        .route("/payments", get(roadrunner::handlers::payments::list_payments))
+        .route("/payments/:id", get(roadrunner::handlers::payments::get_payment))
+        // Stripe Webhook
+        .route("/webhooks/stripe", post(roadrunner::handlers::payments::stripe_webhook))
         .with_state(app_state);
 
     let addr = format!("0.0.0.0:{}", app_state.config.port);
