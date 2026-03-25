@@ -1,0 +1,52 @@
+{
+  "navigation": {
+    "home": "Home",
+    "map": "Map",
+    "tickets": "Tickets",
+    "profile": "Profile"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "phone": "Phone",
+    "forgotPassword": "Forgot Password?",
+    "dontHaveAccount": "Don't have an account?",
+    "alreadyHaveAccount": "Already have an account?",
+    "createAccount": "Create Account",
+    "loginButton": "Login",
+    "registerButton": "Register",
+    "mfaTitle": "Two-Factor Authentication",
+    "mfaDescription": "Enter code from authenticator app",
+    "mfaCode": "Verification Code",
+    "verify": "Verify"
+  },
+  "validation": {
+    "emailRequired": "Email is required",
+    "emailInvalid": "Invalid email format",
+    "passwordRequired": "Password is required",
+    "passwordMin": "Password must be at least {{min}} characters",
+    "passwordMatch": "Passwords must match",
+    "firstNameRequired": "First name is required",
+    "lastNameRequired": "Last name is required"
+  },
+  "errors": {
+    "invalidCredentials": "Invalid credentials",
+    "somethingWentWrong": "Something went wrong",
+    "tryAgain": "Please try again"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "success": "Success",
+    "error": "Error"
+  }
+}
