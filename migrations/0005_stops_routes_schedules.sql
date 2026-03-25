@@ -4,6 +4,10 @@
 -- Enable PostGIS extension (if not already enabled)
 CREATE EXTENSION IF NOT EXISTS postgis;
 
+DROP TABLE IF EXISTS route_stops CASCADE;
+DROP TABLE IF EXISTS routes CASCADE;
+DROP TABLE IF EXISTS stops CASCADE;
+
 -- Create day_type enum for schedules
 CREATE TYPE day_type AS ENUM ('weekday', 'saturday', 'sunday', 'holiday', 'everyday');
 
@@ -44,6 +48,10 @@ CREATE TABLE route_stops (
     route_id UUID NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
     stop_id UUID NOT NULL REFERENCES stops(id) ON DELETE CASCADE,
     stop_order INTEGER NOT NULL,
+    sequence INTEGER, -- Backwards compatibility for 0002
+    scheduled_duration_from_start INT,
+    is_optional BOOLEAN DEFAULT false,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     UNIQUE(route_id, stop_order),
     UNIQUE(route_id, stop_id)
 );

@@ -9,10 +9,11 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 /// Typ pojazdu
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, sqlx::Type, Serialize, Deserialize)]
 #[sqlx(type_name = "vehicle_type", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum VehicleType {
+    #[default]
     Bus,        // Autobus miejski
     Minibus,    // Minibus
     Coach,      // Autokar
@@ -43,10 +44,11 @@ impl VehicleType {
 }
 
 /// Typ paliwa
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, sqlx::Type, Serialize, Deserialize)]
 #[sqlx(type_name = "fuel_type", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum FuelType {
+    #[default]
     Diesel,   // Diesel
     Electric, // Elektryczny
     Hybrid,   // Hybrydowy

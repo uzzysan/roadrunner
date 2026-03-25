@@ -1,6 +1,7 @@
 use crate::errors::{AppError, AppResult};
 use base64::{engine::general_purpose, Engine as _};
-use totp_rs::{Algorithm, QrCode, Secret, TOTP};
+use totp_rs::{Algorithm, Secret, TOTP};
+use qrcode::QrCode;
 
 /// Konfiguracja TOTP
 const TOTP_ISSUER: &str = "RoadRunner";

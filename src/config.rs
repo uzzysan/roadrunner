@@ -8,6 +8,7 @@ pub struct Config {
     pub jwt_expiration: i64,
     pub port: u16,
     pub host: String,
+    pub stripe_secret_key: String,
 }
 
 impl Config {
@@ -27,6 +28,8 @@ impl Config {
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(3000),
             host: env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
+            stripe_secret_key: env::var("STRIPE_SECRET_KEY")
+                .unwrap_or_else(|_| "sk_test_...".to_string()),
         }
     }
 }
