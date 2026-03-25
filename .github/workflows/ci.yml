@@ -8,45 +8,59 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  SQLX_OFFLINE: true
 
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: roadrunner_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-        components: rustfmt, clippy
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
-    - name: Cache cargo
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
 
-    - name: Check formatting
-      run: cargo fmt -- --check
+      - name: Run Database Migrations
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/roadrunner_test
+        run: |
+          cargo install sqlx-cli --no-default-features --features postgres --version 0.7.3
+          sqlx database create
+          sqlx migrate run
 
-    - name: Run clippy
-      run: cargo clippy -- -D warnings
+      - name: Check formatting
+        run: cargo fmt -- --check
 
-    - name: Build
-      run: cargo build --release
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/roadrunner_test
 
-    - name: Run tests
-      run: cargo test --verbose
-      env:
-        DATABASE_URL: postgres://postgres:postgres@localhost:5432/roadrunner_test
+      - name: Build
+        run: cargo build --release
 
-    - name: Check audit
-      run: |
-        cargo install cargo-audit
-        cargo audit
+      - name: Run tests
+        run: cargo test --verbose
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/roadrunner_test

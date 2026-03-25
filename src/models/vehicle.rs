@@ -47,11 +47,11 @@ impl VehicleType {
 #[sqlx(type_name = "fuel_type", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum FuelType {
-    Diesel,    // Diesel
-    Electric,  // Elektryczny
-    Hybrid,    // Hybrydowy
-    Cng,       // CNG
-    Hydrogen,  // Wodór
+    Diesel,   // Diesel
+    Electric, // Elektryczny
+    Hybrid,   // Hybrydowy
+    Cng,      // CNG
+    Hydrogen, // Wodór
 }
 
 impl FuelType {

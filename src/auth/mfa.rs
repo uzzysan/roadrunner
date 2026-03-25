@@ -1,75 +1,66 @@
-use totp_rs::{Algorithm, Secret, TOTP, QrCode};
-use base64::{Engine as _, engine::general_purpose};
 use crate::errors::{AppError, AppResult};
+use base64::{engine::general_purpose, Engine as _};
+use totp_rs::{Algorithm, QrCode, Secret, TOTP};
 
 /// Konfiguracja TOTP
 const TOTP_ISSUER: &str = "RoadRunner";
 const TOTP_ACCOUNT_NAME: &str = "RoadRunner User";
 
 /// Generuje nowy sekret TOTP dla użytkownika
-/// 
+///
 /// # Returns
 /// * `(String, String)` - (sekret, URL dla QR code)
 pub fn generate_totp_secret(user_email: &str) -> AppResult<(String, String)> {
-    let secret = Secret::generate_secret().to_bytes()
+    let secret = Secret::generate_secret()
+        .to_bytes()
         .map_err(|e| AppError::Internal(format!("Failed to generate secret: {}", e)))?;
 
     let secret_base32 = general_purpose::STANDARD.encode(&secret);
 
-    let totp = TOTP::new(
-        Algorithm::SHA1,
-        6,
-        1,
-        30,
-        secret.clone(),
-    ).map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
+    let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret.clone())
+        .map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
 
-    let qr_url = totp.get_uri(
-        TOTP_ISSUER.to_string(),
-        user_email.to_string(),
-    );
+    let qr_url = totp.get_uri(TOTP_ISSUER.to_string(), user_email.to_string());
 
     Ok((secret_base32, qr_url))
 }
 
 /// Weryfikuje kod TOTP
-/// 
+///
 /// # Arguments
 /// * `secret` - Sekret TOTP (base64)
 /// * `code` - Kod do weryfikacji
-/// 
+///
 /// # Returns
 /// * `bool` - true jeśli kod jest prawidłowy
 pub fn verify_totp(secret: &str, code: &str) -> AppResult<bool> {
-    let secret_bytes = general_purpose::STANDARD.decode(secret)
+    let secret_bytes = general_purpose::STANDARD
+        .decode(secret)
         .map_err(|e| AppError::Internal(format!("Invalid secret: {}", e)))?;
 
-    let totp = TOTP::new(
-        Algorithm::SHA1,
-        6,
-        1,
-        30,
-        secret_bytes,
-    ).map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
+    let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret_bytes)
+        .map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
 
-    let is_valid = totp.check_current(code)
+    let is_valid = totp
+        .check_current(code)
         .map_err(|e| AppError::Internal(format!("TOTP verification failed: {}", e)))?;
 
     Ok(is_valid)
 }
 
 /// Generuje QR code jako base64 PNG
-/// 
+///
 /// # Arguments
 /// * `qr_url` - URL do zakodowania w QR
-/// 
+///
 /// # Returns
 /// * `String` - QR code jako base64 PNG
 pub fn generate_qr_code(qr_url: &str) -> AppResult<String> {
     let qr = QrCode::new(qr_url)
         .map_err(|e| AppError::Internal(format!("Failed to generate QR: {}", e)))?;
 
-    let image = qr.render::<qrcode::render::svg::Color>()
+    let image = qr
+        .render::<qrcode::render::svg::Color>()
         .min_dimensions(200, 200)
         .build();
 
@@ -93,7 +84,8 @@ mod tests {
             1,
             30,
             general_purpose::STANDARD.decode(&secret).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let code = totp.generate_current().unwrap();
 

@@ -13,10 +13,9 @@ pub struct Config {
 impl Config {
     pub fn from_env() -> Self {
         dotenv().ok();
-        
+
         Self {
-            database_url: env::var("DATABASE_URL")
-                .expect("DATABASE_URL must be set"),
+            database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
             jwt_secret: env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "default-secret-change-in-production".to_string()),
             jwt_expiration: env::var("JWT_EXPIRATION")
@@ -27,8 +26,7 @@ impl Config {
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(3000),
-            host: env::var("HOST")
-                .unwrap_or_else(|_| "0.0.0.0".to_string()),
+            host: env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
         }
     }
 }

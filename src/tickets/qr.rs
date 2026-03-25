@@ -1,21 +1,22 @@
-use qrcode::QrCode;
-use qrcode::render::svg::Color;
-use base64::{Engine as _, engine::general_purpose};
-use uuid::Uuid;
 use crate::errors::{AppError, AppResult};
+use base64::{engine::general_purpose, Engine as _};
+use qrcode::render::svg::Color;
+use qrcode::QrCode;
+use uuid::Uuid;
 
 /// Generuje kod QR jako SVG base64
-/// 
+///
 /// # Arguments
 /// * `data` - Dane do zakodowania
-/// 
+///
 /// # Returns
 /// * `String` - QR code jako base64 SVG
 pub fn generate_qr_code(data: &str) -> AppResult<String> {
     let qr = QrCode::new(data)
         .map_err(|e| AppError::Internal(format!("Failed to generate QR: {}", e)))?;
 
-    let svg = qr.render::<Color>()
+    let svg = qr
+        .render::<Color>()
         .min_dimensions(300, 300)
         .dark_color(Color("#000000"))
         .light_color(Color("#FFFFFF"))
@@ -27,9 +28,9 @@ pub fn generate_qr_code(data: &str) -> AppResult<String> {
 }
 
 /// Generuje unikalny kod biletu
-/// 
+///
 /// Format: TICKET:<uuid>:<timestamp>
-/// 
+///
 /// # Returns
 /// * `String` - Unikalny kod biletu
 pub fn generate_ticket_code() -> String {
@@ -39,7 +40,7 @@ pub fn generate_ticket_code() -> String {
 }
 
 /// Generuje QR code dla biletu
-/// 
+///
 /// # Returns
 /// * `(String, String)` - (kod biletu, QR code base64)
 pub fn generate_ticket_qr() -> AppResult<(String, String)> {
@@ -49,10 +50,10 @@ pub fn generate_ticket_qr() -> AppResult<(String, String)> {
 }
 
 /// Weryfikuje format kodu biletu
-/// 
+///
 /// # Arguments
 /// * `code` - Kod do weryfikacji
-/// 
+///
 /// # Returns
 /// * `bool` - true jeśli format jest poprawny
 pub fn is_valid_ticket_code(code: &str) -> bool {
@@ -105,9 +106,13 @@ mod tests {
 
     #[test]
     fn test_is_valid_ticket_code() {
-        assert!(is_valid_ticket_code("TICKET:550e8400-e29b-41d4-a716-446655440000:1234567890"));
+        assert!(is_valid_ticket_code(
+            "TICKET:550e8400-e29b-41d4-a716-446655440000:1234567890"
+        ));
         assert!(!is_valid_ticket_code("INVALID:code"));
         assert!(!is_valid_ticket_code("TICKET:invalid-uuid:123"));
-        assert!(!is_valid_ticket_code("TICKET:550e8400-e29b-41d4-a716-446655440000:invalid"));
+        assert!(!is_valid_ticket_code(
+            "TICKET:550e8400-e29b-41d4-a716-446655440000:invalid"
+        ));
     }
 }

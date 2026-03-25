@@ -22,13 +22,13 @@ pub struct TokenPair {
 }
 
 /// Generuje parę tokenów JWT (access + refresh)
-/// 
+///
 /// # Arguments
 /// * `user_id` - ID użytkownika
 /// * `email` - Email użytkownika
 /// * `role` - Rola użytkownika
 /// * `config` - Konfiguracja zawierająca JWT_SECRET
-/// 
+///
 /// # Returns
 /// * `TokenPair` - Para tokenów (access + refresh)
 pub fn generate_token_pair(
@@ -72,11 +72,11 @@ pub fn generate_token_pair(
 }
 
 /// Dekoduje i waliduje token JWT
-/// 
+///
 /// # Arguments
 /// * `token` - Token JWT do walidacji
 /// * `secret` - Sekret do walidacji
-/// 
+///
 /// # Returns
 /// * `Claims` - Zdekodowane claims
 /// * `Error` - Błąd walidacji
@@ -89,11 +89,11 @@ pub fn decode_token(token: &str, secret: &str) -> Result<Claims, jsonwebtoken::e
 }
 
 /// Odświeża access token używając refresh tokena
-/// 
+///
 /// # Arguments
 /// * `refresh_token` - Refresh token
 /// * `config` - Konfiguracja
-/// 
+///
 /// # Returns
 /// * `TokenPair` - Nowa para tokenów
 pub fn refresh_access_token(
@@ -103,10 +103,5 @@ pub fn refresh_access_token(
     let claims = decode_token(refresh_token, &config.jwt_secret)?;
 
     // Generuj nową parę tokenów
-    generate_token_pair(
-        claims.sub,
-        claims.email,
-        claims.role,
-        config,
-    )
+    generate_token_pair(claims.sub, claims.email, claims.role, config)
 }

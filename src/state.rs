@@ -1,10 +1,10 @@
-use sqlx::PgPool;
-use std::sync::Arc;
 use crate::config::Config;
 use crate::websocket::state::WsState;
+use sqlx::PgPool;
+use std::sync::Arc;
 
 /// Zunifikowany stan aplikacji
-/// 
+///
 /// Łączy wszystkie zależności w jeden struct dla łatwiejszego zarządzania
 #[derive(Clone)]
 pub struct AppState {

@@ -39,8 +39,7 @@ pub struct StopResponse {
 
 impl From<Stop> for StopResponse {
     fn from(stop: Stop) -> Self {
-        let (lon, lat) = parse_point_wkt(&stop.location)
-            .unwrap_or((0.0, 0.0));
+        let (lon, lat) = parse_point_wkt(&stop.location).unwrap_or((0.0, 0.0));
 
         Self {
             id: stop.id,
@@ -57,14 +56,14 @@ impl From<Stop> for StopResponse {
 }
 
 /// Tworzy string WKT POINT dla PostGIS
-/// 
+///
 /// # Arguments
 /// * `longitude` - Długość geograficzna (-180 do 180)
 /// * `latitude` - Szerokość geograficzna (-90 do 90)
-/// 
+///
 /// # Returns
 /// String w formacie "SRID=4326;POINT(lon lat)"
-/// 
+///
 /// # Example
 /// ```
 /// let point = make_point(21.0118, 52.2297); // Warszawa
@@ -75,13 +74,13 @@ pub fn make_point(longitude: f64, latitude: f64) -> String {
 }
 
 /// Parsuje string WKT POINT na współrzędne (lon, lat)
-/// 
+///
 /// # Arguments
 /// * `wkt` - String w formacie "SRID=4326;POINT(lon lat)" lub "POINT(lon lat)"
-/// 
+///
 /// # Returns
 /// Option<(longitude, latitude)>
-/// 
+///
 /// # Example
 /// ```
 /// let (lon, lat) = parse_point_wkt("SRID=4326;POINT(21.0118 52.2297)").unwrap();
@@ -100,7 +99,7 @@ pub fn parse_point_wkt(wkt: &str) -> Option<(f64, f64)> {
     let coords_start = point_part.find('(')?;
     let coords_end = point_part.find(')')?;
     let coords = &point_part[coords_start + 1..coords_end];
-    
+
     let parts: Vec<&str> = coords.split_whitespace().collect();
     if parts.len() != 2 {
         return None;

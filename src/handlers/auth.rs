@@ -1,11 +1,11 @@
-use axum::{
-    extract::State,
-    Json,
-};
+use axum::{extract::State, Json};
 use validator::Validate;
 
 use crate::{
-    auth::{jwt::generate_token_pair, password::{hash_password, verify_password}},
+    auth::{
+        jwt::generate_token_pair,
+        password::{hash_password, verify_password},
+    },
     errors::{AppError, AppResult},
     models::user::{CreateUserRequest, LoginRequest, UserResponse, UserRole},
     state::AppState,
@@ -135,10 +135,10 @@ pub struct SetupMfaResponse {
 }
 
 /// Inicjalizacja MFA - generuje sekret i QR code
-/// 
+///
 /// # Endpoint
 /// POST /auth/mfa/setup
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -206,10 +206,10 @@ pub struct VerifyMfaSetupResponse {
 }
 
 /// Weryfikuje kod MFA i aktywuje MFA dla użytkownika
-/// 
+///
 /// # Endpoint
 /// POST /auth/mfa/verify-setup
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -230,7 +230,8 @@ pub async fn verify_mfa_setup(
     .await?
     .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
-    let secret = user.mfa_secret
+    let secret = user
+        .mfa_secret
         .ok_or_else(|| AppError::BadRequest("MFA not initialized".to_string()))?;
 
     // Weryfikuj kod
@@ -272,10 +273,10 @@ pub struct VerifyMfaLoginResponse {
 }
 
 /// Weryfikuje kod MFA podczas logowania
-/// 
+///
 /// # Endpoint
 /// POST /auth/mfa/verify-login
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -313,7 +314,8 @@ pub async fn verify_mfa_login(
         return Err(AppError::BadRequest("MFA is not enabled".to_string()));
     }
 
-    let secret = user.mfa_secret
+    let secret = user
+        .mfa_secret
         .ok_or_else(|| AppError::Internal("MFA secret not found".to_string()))?;
 
     // Weryfikuj kod MFA
@@ -348,10 +350,10 @@ pub struct DisableMfaResponse {
 }
 
 /// Wyłącza MFA dla użytkownika (wymaga hasła)
-/// 
+///
 /// # Endpoint
 /// POST /auth/mfa/disable
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -415,17 +417,17 @@ pub struct RefreshTokenResponse {
 }
 
 /// Odświeża access token używając refresh tokena
-/// 
+///
 /// # Endpoint
 /// POST /auth/refresh
-/// 
+///
 /// # Request
 /// ```json
 /// {
 ///   "refresh_token": "eyJ..."
 /// }
 /// ```
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -480,17 +482,17 @@ pub struct LogoutResponse {
 }
 
 /// Wylogowuje użytkownika (unieważnia refresh token)
-/// 
+///
 /// # Endpoint
 /// POST /auth/logout
-/// 
+///
 /// # Request
 /// ```json
 /// {
 ///   "refresh_token": "eyJ..."
 /// }
 /// ```
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -498,7 +500,7 @@ pub struct LogoutResponse {
 ///   "message": "Logged out successfully"
 /// }
 /// ```
-/// 
+///
 /// # Uwaga
 /// W pełnej implementacji należy dodać blacklistę tokenów (Redis)
 pub async fn logout(

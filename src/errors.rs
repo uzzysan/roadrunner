@@ -2,7 +2,7 @@ use axum::{http::StatusCode, response::IntoResponse, Json};
 use serde_json::json;
 
 /// Centralny typ błędu aplikacji
-/// 
+///
 /// Implementuje IntoResponse dla automatycznej konwersji do HTTP response
 #[derive(Debug)]
 pub enum AppError {

@@ -46,24 +46,60 @@ async fn main() {
         .route("/auth/register", post(roadrunner::handlers::auth::register))
         .route("/auth/login", post(roadrunner::handlers::auth::login))
         // MFA
-        .route("/auth/mfa/setup", post(roadrunner::handlers::auth::setup_mfa))
-        .route("/auth/mfa/verify-setup", post(roadrunner::handlers::auth::verify_mfa_setup))
-        .route("/auth/mfa/verify-login", post(roadrunner::handlers::auth::verify_mfa_login))
-        .route("/auth/mfa/disable", post(roadrunner::handlers::auth::disable_mfa))
+        .route(
+            "/auth/mfa/setup",
+            post(roadrunner::handlers::auth::setup_mfa),
+        )
+        .route(
+            "/auth/mfa/verify-setup",
+            post(roadrunner::handlers::auth::verify_mfa_setup),
+        )
+        .route(
+            "/auth/mfa/verify-login",
+            post(roadrunner::handlers::auth::verify_mfa_login),
+        )
+        .route(
+            "/auth/mfa/disable",
+            post(roadrunner::handlers::auth::disable_mfa),
+        )
         // Token Refresh & Logout
-        .route("/auth/refresh", post(roadrunner::handlers::auth::refresh_token))
+        .route(
+            "/auth/refresh",
+            post(roadrunner::handlers::auth::refresh_token),
+        )
         .route("/auth/logout", post(roadrunner::handlers::auth::logout))
         // Tickets
-        .route("/tickets", post(roadrunner::handlers::tickets::create_ticket))
+        .route(
+            "/tickets",
+            post(roadrunner::handlers::tickets::create_ticket),
+        )
         .route("/tickets", get(roadrunner::handlers::tickets::list_tickets))
-        .route("/tickets/:id", get(roadrunner::handlers::tickets::get_ticket))
-        .route("/tickets/validate", post(roadrunner::handlers::tickets::validate_ticket))
+        .route(
+            "/tickets/:id",
+            get(roadrunner::handlers::tickets::get_ticket),
+        )
+        .route(
+            "/tickets/validate",
+            post(roadrunner::handlers::tickets::validate_ticket),
+        )
         // Payments
-        .route("/payments", post(roadrunner::handlers::payments::create_payment))
-        .route("/payments", get(roadrunner::handlers::payments::list_payments))
-        .route("/payments/:id", get(roadrunner::handlers::payments::get_payment))
+        .route(
+            "/payments",
+            post(roadrunner::handlers::payments::create_payment),
+        )
+        .route(
+            "/payments",
+            get(roadrunner::handlers::payments::list_payments),
+        )
+        .route(
+            "/payments/:id",
+            get(roadrunner::handlers::payments::get_payment),
+        )
         // Stripe Webhook
-        .route("/webhooks/stripe", post(roadrunner::handlers::payments::stripe_webhook))
+        .route(
+            "/webhooks/stripe",
+            post(roadrunner::handlers::payments::stripe_webhook),
+        )
         .with_state(app_state);
 
     let addr = format!("0.0.0.0:{}", app_state.config.port);

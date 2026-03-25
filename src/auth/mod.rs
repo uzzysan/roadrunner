@@ -22,12 +22,12 @@ pub struct CurrentUser {
 }
 
 /// Middleware autentykacji - weryfikuje JWT token
-/// 
+///
 /// # Arguments
 /// * `State(state)` - Stan aplikacji
 /// * `request` - HTTP request
 /// * `next` - Next middleware/handler
-/// 
+///
 /// # Returns
 /// * `Result<Response, StatusCode>` - Response lub 401 Unauthorized
 pub async fn auth_middleware(
@@ -64,11 +64,11 @@ pub async fn auth_middleware(
 }
 
 /// Middleware wymagający konkretnej roli
-/// 
+///
 /// # Type Parameters
 /// * `F` - Handler function
 /// * `Roles` - Lista dozwolonych ról
-/// 
+///
 /// # Example
 /// ```rust
 /// let admin_routes = Router::new()

@@ -10,10 +10,10 @@ impl TicketPricing {
     /// Zwraca cenę biletu w groszach
     pub fn get_price(ticket_type: TicketType) -> i32 {
         match ticket_type {
-            TicketType::Single => 500,      // 5.00 PLN
-            TicketType::Weekly => 2500,     // 25.00 PLN
-            TicketType::Monthly => 8000,    // 80.00 PLN
-            TicketType::Discounted => 250,  // 2.50 PLN
+            TicketType::Single => 500,     // 5.00 PLN
+            TicketType::Weekly => 2500,    // 25.00 PLN
+            TicketType::Monthly => 8000,   // 80.00 PLN
+            TicketType::Discounted => 250, // 2.50 PLN
         }
     }
 

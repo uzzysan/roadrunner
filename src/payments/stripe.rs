@@ -1,10 +1,10 @@
-use stripe::{Client, CreatePaymentIntent, Currency, PaymentIntent};
 use crate::{
     config::Config,
     errors::{AppError, AppResult},
     models::payment::{Payment, PaymentMethod, PaymentStatus},
 };
 use sqlx::PgPool;
+use stripe::{Client, CreatePaymentIntent, Currency, PaymentIntent};
 use uuid::Uuid;
 
 /// Serwis do obsługi płatności Stripe
@@ -20,12 +20,12 @@ impl StripeService {
     }
 
     /// Tworzy PaymentIntent w Stripe
-    /// 
+    ///
     /// # Arguments
     /// * `amount` - Kwota w groszach
     /// * `currency` - Waluta (PLN, EUR, USD)
     /// * `description` - Opis płatności
-    /// 
+    ///
     /// # Returns
     /// * `PaymentIntent` - Utworzony PaymentIntent
     pub async fn create_payment_intent(
@@ -48,12 +48,11 @@ impl StripeService {
         }
 
         // Automatyczne potwierdzenie (dla kart)
-        create_intent.automatic_payment_methods = Some(
-            stripe::CreatePaymentIntentAutomaticPaymentMethods {
+        create_intent.automatic_payment_methods =
+            Some(stripe::CreatePaymentIntentAutomaticPaymentMethods {
                 enabled: true,
                 ..Default::default()
-            }
-        );
+            });
 
         let intent = PaymentIntent::create(&self.client, create_intent)
             .await
@@ -63,10 +62,10 @@ impl StripeService {
     }
 
     /// Pobiera PaymentIntent z Stripe
-    /// 
+    ///
     /// # Arguments
     /// * `payment_intent_id` - ID PaymentIntent
-    /// 
+    ///
     /// # Returns
     /// * `PaymentIntent` - Pobrany PaymentIntent
     pub async fn retrieve_payment_intent(
@@ -75,9 +74,9 @@ impl StripeService {
     ) -> AppResult<PaymentIntent> {
         let intent = PaymentIntent::retrieve(
             &self.client,
-            &payment_intent_id.parse().map_err(|_| {
-                AppError::BadRequest("Invalid payment intent ID".to_string())
-            })?,
+            &payment_intent_id
+                .parse()
+                .map_err(|_| AppError::BadRequest("Invalid payment intent ID".to_string()))?,
             &[],
         )
         .await
@@ -87,21 +86,18 @@ impl StripeService {
     }
 
     /// Anuluje PaymentIntent
-    /// 
+    ///
     /// # Arguments
     /// * `payment_intent_id` - ID PaymentIntent
-    /// 
+    ///
     /// # Returns
     /// * `PaymentIntent` - Anulowany PaymentIntent
-    pub async fn cancel_payment_intent(
-        &self,
-        payment_intent_id: &str,
-    ) -> AppResult<PaymentIntent> {
+    pub async fn cancel_payment_intent(&self, payment_intent_id: &str) -> AppResult<PaymentIntent> {
         let intent = PaymentIntent::cancel(
             &self.client,
-            &payment_intent_id.parse().map_err(|_| {
-                AppError::BadRequest("Invalid payment intent ID".to_string())
-            })?,
+            &payment_intent_id
+                .parse()
+                .map_err(|_| AppError::BadRequest("Invalid payment intent ID".to_string()))?,
             stripe::CancelPaymentIntent::default(),
         )
         .await
@@ -112,7 +108,7 @@ impl StripeService {
 }
 
 /// Tworzy rekord płatności w bazie danych
-/// 
+///
 /// # Arguments
 /// * `pool` - PgPool
 /// * `user_id` - ID użytkownika
@@ -120,7 +116,7 @@ impl StripeService {
 /// * `amount` - Kwota w groszach
 /// * `currency` - Waluta
 /// * `description` - Opis
-/// 
+///
 /// # Returns
 /// * `Payment` - Utworzona płatność
 pub async fn create_payment_record(
@@ -156,13 +152,13 @@ pub async fn create_payment_record(
 }
 
 /// Aktualizuje status płatności
-/// 
+///
 /// # Arguments
 /// * `pool` - PgPool
 /// * `payment_id` - ID płatności
 /// * `status` - Nowy status
 /// * `stripe_payment_intent_id` - ID PaymentIntent w Stripe (opcjonalnie)
-/// 
+///
 /// # Returns
 /// * `Payment` - Zaktualizowana płatność
 pub async fn update_payment_status(
