@@ -197,10 +197,9 @@ BEGIN
     
     v_current_time := p_first_time;
     
-    WHILE v_current_time <= p_last_time LOOP
+    WHILE v_current_time <= p_last_time AND v_current_time >= p_first_time LOOP
         INSERT INTO schedules (route_id, stop_id, arrival_time, departure_time, day_type, is_active)
-        VALUES (v_route_id, v_stop_id, v_current_time, v_current_time, p_day_type, true)
-        ON CONFLICT DO NOTHING;
+        VALUES (v_route_id, v_stop_id, v_current_time, v_current_time, p_day_type, true);
         
         v_current_time := v_current_time + (p_interval_minutes || ' minutes')::INTERVAL;
     END LOOP;

@@ -21,6 +21,10 @@ CREATE TYPE driver_status AS ENUM ('active', 'on_leave', 'suspended', 'inactive'
 -- TABELA POJAZDÓW (VEHICLES)
 -- ============================================
 
+DROP TABLE IF EXISTS vehicle_assignments CASCADE;
+DROP TABLE IF EXISTS gps_positions CASCADE;
+DROP TABLE IF EXISTS vehicles CASCADE;
+
 CREATE TABLE vehicles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     
