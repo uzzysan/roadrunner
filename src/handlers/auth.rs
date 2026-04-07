@@ -46,8 +46,8 @@ pub async fn register(
         r#"
         INSERT INTO users (email, password_hash, first_name, last_name, phone, role)
         VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, email, password_hash, first_name, last_name, phone, role as "role: UserRole", 
-                  mfa_enabled, mfa_secret, created_at, updated_at
+        RETURNING id, email, email_hash, password_hash, first_name, last_name, phone, role as "role: UserRole", 
+                  mfa_enabled, mfa_secret, email_verified, is_active, created_at, updated_at
         "#,
         req.email,
         password_hash,
@@ -60,7 +60,7 @@ pub async fn register(
     .await?;
 
     // Generuj tokeny JWT
-    let token_pair = generate_token_pair(user.id, user.role.clone(), &state.config)
+    let token_pair = generate_token_pair(user.id, user.email.clone(), user.role.clone(), &state.config)
         .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(AuthResponse {
@@ -82,8 +82,8 @@ pub async fn login(
     let user = sqlx::query_as!(
         crate::models::user::User,
         r#"
-        SELECT id, email, password_hash, first_name, last_name, phone, 
-               role as "role: UserRole", mfa_enabled, mfa_secret, created_at, updated_at
+        SELECT id, email, email_hash, password_hash, first_name, last_name, phone, 
+               role as "role: UserRole", mfa_enabled, mfa_secret, email_verified, is_active, created_at, updated_at
         FROM users 
         WHERE email = $1
         "#,
@@ -109,7 +109,7 @@ pub async fn login(
     }
 
     // Generuj tokeny JWT
-    let token_pair = generate_token_pair(user.id, user.role.clone(), &state.config)
+    let token_pair = generate_token_pair(user.id, user.email.clone(), user.role.clone(), &state.config)
         .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(AuthResponse {
@@ -155,8 +155,8 @@ pub async fn setup_mfa(
     let user = sqlx::query_as!(
         crate::models::user::User,
         r#"
-        SELECT id, email, password_hash, first_name, last_name, phone, 
-               role as "role: UserRole", mfa_enabled, mfa_secret, created_at, updated_at
+        SELECT id, email, email_hash, password_hash, first_name, last_name, phone, 
+               role as "role: UserRole", mfa_enabled, mfa_secret, email_verified, is_active, created_at, updated_at
         FROM users 
         WHERE id = $1
         "#,
@@ -298,8 +298,8 @@ pub async fn verify_mfa_login(
     let user = sqlx::query_as!(
         crate::models::user::User,
         r#"
-        SELECT id, email, password_hash, first_name, last_name, phone, 
-               role as "role: UserRole", mfa_enabled, mfa_secret, created_at, updated_at
+        SELECT id, email, email_hash, password_hash, first_name, last_name, phone, 
+               role as "role: UserRole", mfa_enabled, mfa_secret, email_verified, is_active, created_at, updated_at
         FROM users 
         WHERE id = $1
         "#,
@@ -326,7 +326,7 @@ pub async fn verify_mfa_login(
     }
 
     // Generuj pełne tokeny
-    let token_pair = generate_token_pair(user.id, user.role.clone(), &state.config)
+    let token_pair = generate_token_pair(user.id, user.email.clone(), user.role.clone(), &state.config)
         .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(VerifyMfaLoginResponse {
@@ -369,8 +369,8 @@ pub async fn disable_mfa(
     let user = sqlx::query_as!(
         crate::models::user::User,
         r#"
-        SELECT id, email, password_hash, first_name, last_name, phone, 
-               role as "role: UserRole", mfa_enabled, mfa_secret, created_at, updated_at
+        SELECT id, email, email_hash, password_hash, first_name, last_name, phone, 
+               role as "role: UserRole", mfa_enabled, mfa_secret, email_verified, is_active, created_at, updated_at
         FROM users 
         WHERE id = $1
         "#,
@@ -448,8 +448,8 @@ pub async fn refresh_token(
     let user = sqlx::query_as!(
         crate::models::user::User,
         r#"
-        SELECT id, email, password_hash, first_name, last_name, phone, 
-               role as "role: UserRole", mfa_enabled, mfa_secret, created_at, updated_at
+        SELECT id, email, email_hash, password_hash, first_name, last_name, phone, 
+               role as "role: UserRole", mfa_enabled, mfa_secret, email_verified, is_active, created_at, updated_at
         FROM users 
         WHERE id = $1
         "#,
@@ -460,7 +460,7 @@ pub async fn refresh_token(
     .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     // Generuj nową parę tokenów
-    let token_pair = generate_token_pair(user.id, user.role.clone(), &state.config)
+    let token_pair = generate_token_pair(user.id, user.email.clone(), user.role.clone(), &state.config)
         .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(RefreshTokenResponse {

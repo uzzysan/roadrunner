@@ -48,10 +48,11 @@ impl IncidentType {
 }
 
 /// Poziom ważności incydentu
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, Serialize, Deserialize, Default)]
 #[sqlx(type_name = "incident_severity", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
+    #[default]
     Low,      // Niski - nie wpływa na rozkład
     Medium,   // Średni - lekkie opóźnienie
     High,     // Wysoki - poważne opóźnienie

@@ -75,7 +75,7 @@ impl StripeService {
         let intent = PaymentIntent::retrieve(
             &self.client,
             &payment_intent_id
-                .parse()
+                .parse::<stripe::PaymentIntentId>()
                 .map_err(|_| AppError::BadRequest("Invalid payment intent ID".to_string()))?,
             &[],
         )
@@ -96,7 +96,7 @@ impl StripeService {
         let intent = PaymentIntent::cancel(
             &self.client,
             &payment_intent_id
-                .parse()
+                .parse::<stripe::PaymentIntentId>()
                 .map_err(|_| AppError::BadRequest("Invalid payment intent ID".to_string()))?,
             stripe::CancelPaymentIntent::default(),
         )

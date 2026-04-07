@@ -33,7 +33,7 @@ anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 config = "0.14"
-totp-rs = { version = "5.0", features = ["qr"] }
+totp-rs = { version = "5.0", features = ["gen_secret", "qr"] }
 qrcode = "0.14"
 base64 = "0.22"
 async-stripe = { version = "0.39", default-features = false, features = ["runtime-tokio-hyper"] }

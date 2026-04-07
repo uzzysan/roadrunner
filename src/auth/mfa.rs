@@ -12,16 +12,23 @@ const TOTP_ACCOUNT_NAME: &str = "RoadRunner User";
 /// # Returns
 /// * `(String, String)` - (sekret, URL dla QR code)
 pub fn generate_totp_secret(user_email: &str) -> AppResult<(String, String)> {
-    let secret = Secret::generate_secret()
-        .to_bytes()
-        .map_err(|e| AppError::Internal(format!("Failed to generate secret: {}", e)))?;
+    // Generate secret
+    let secret = Secret::generate_secret();
+    let secret_base32 = secret.to_encoded().to_string();
+    let secret_bytes = secret.to_bytes().map_err(|e| AppError::Internal(format!("Secret err: {}", e)))?;
 
-    let secret_base32 = general_purpose::STANDARD.encode(&secret);
+    let totp = TOTP::new(
+        Algorithm::SHA1,
+        6,
+        1,
+        30,
+        secret_bytes,
+        Some(TOTP_ISSUER.to_string()),
+        user_email.to_string()
+    )
+    .map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
 
-    let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret.clone())
-        .map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
-
-    let qr_url = totp.get_uri(TOTP_ISSUER.to_string(), user_email.to_string());
+    let qr_url = totp.get_url();
 
     Ok((secret_base32, qr_url))
 }
@@ -35,12 +42,19 @@ pub fn generate_totp_secret(user_email: &str) -> AppResult<(String, String)> {
 /// # Returns
 /// * `bool` - true jeśli kod jest prawidłowy
 pub fn verify_totp(secret: &str, code: &str) -> AppResult<bool> {
-    let secret_bytes = general_purpose::STANDARD
-        .decode(secret)
-        .map_err(|e| AppError::Internal(format!("Invalid secret: {}", e)))?;
+    let secret_obj = Secret::Encoded(secret.to_string());
+    let secret_bytes = secret_obj.to_bytes().map_err(|e| AppError::Internal(format!("Invalid secret: {}", e)))?;
 
-    let totp = TOTP::new(Algorithm::SHA1, 6, 1, 30, secret_bytes)
-        .map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
+    let totp = TOTP::new(
+        Algorithm::SHA1,
+        6,
+        1,
+        30,
+        secret_bytes,
+        Some(TOTP_ISSUER.to_string()),
+        TOTP_ACCOUNT_NAME.to_string()
+    )
+    .map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
 
     let is_valid = totp
         .check_current(code)
@@ -79,12 +93,15 @@ mod tests {
         let (secret, _qr_url) = generate_totp_secret("test@example.com").unwrap();
 
         // Generuj aktualny kod
+        let secret_obj = Secret::Encoded(secret.clone());
         let totp = TOTP::new(
             Algorithm::SHA1,
             6,
             1,
             30,
-            general_purpose::STANDARD.decode(&secret).unwrap(),
+            secret_obj.to_bytes().unwrap(),
+            Some(TOTP_ISSUER.to_string()),
+            TOTP_ACCOUNT_NAME.to_string()
         )
         .unwrap();
 
