@@ -1,8 +1,8 @@
 # RoadRunner - GitHub Actions Issues & Fixes
 
-**Data**: 2026-03-26  
+**Data**: 2026-03-26 (zaktualizowano 2026-08-24)  
 **Autor**: HAL9000  
-**Status**: 🔧 W trakcie naprawy
+**Status**: ✅ Problem #2 i #3 naprawione 2026-08-24 (patrz `docs/status-log.md` w repo `RoadRunner` za pełny kontekst tej sesji)
 
 ---
 
@@ -21,52 +21,47 @@
 
 ---
 
-### 2. ❌ SQLX Offline Files - Niepoprawne/Niekompletne **(DO NAPRAWY)**
+### 2. ✅ SQLX Offline Files - Niepoprawne/Niekompletne **(NAPRAWIONE 2026-08-24)**
 **Plik**: `.sqlx/query-*.json`
 
 **Problem**: 
-- Pliki `.sqlx` są niepoprawne - jeden ma nazwę `query-*.json` (z gwiazdką!)
-- Struktura JSON jest uszkodzona
-- Brakuje wielu zapytań używanych w kodzie
+- Pliki `.sqlx` były niepoprawne - jeden miał dosłowną nazwę `query-*.json` (z gwiazdką w nazwie
+  pliku, nie jako wzorzec!), co dodatkowo psuło indeksowanie repo na Windows (nielegalny znak w
+  nazwie pliku)
+- Brakowało większości zapytań używanych w kodzie (tylko 2 pliki w cache)
 
 **Skutek**: 
-- `cargo build` z `SQLX_OFFLINE=true` failuje
-- Workflow `prepare-sqlx.yml` nie może wygenerować poprawnych plików
-- Wszystkie workflow failują
+- `cargo build` z `SQLX_OFFLINE=true` failował
+- Workflow `prepare-sqlx.yml` nie mógł wygenerować poprawnych plików
 
-**Rozwiązanie wymagane**:
-1. Usunąć błędne pliki `.sqlx/query-*.json`
-2. Uruchomić lokalnie: `cargo sqlx prepare` z działającą bazą
-3. Zacommitować wygenerowane pliki
-4. Sprawdzić czy `cargo build` działa z `SQLX_OFFLINE=true`
-
-**Tymczasowe obejście**: 
-- Można ustawić `SQLX_OFFLINE=false` w CI i polegać na bazie danych
-- ALE to spowolni buildy i wymaga działającej bazy
+**Fix**: usunięto błędny plik `query-*.json`, postawiono lokalnie Postgres 16 + PostGIS,
+zaaplikowano wszystkie 9 migracji, uruchomiono `cargo sqlx prepare` z działającym
+`DATABASE_URL` — wygenerowano kompletny, poprawny cache (20 plików). Zweryfikowano:
+`SQLX_OFFLINE=true cargo check --all-targets` przechodzi czysto.
 
 ---
 
-### 3. ❌ Docker Build - Zależność od SQLX_OFFLINE **(ZALEŻNE OD #2)**
+### 3. ✅ Docker Build - Zależność od SQLX_OFFLINE **(NAPRAWIONE — zależało od #2)**
 **Plik**: `Dockerfile`
 
-**Problem**: Dockerfile ustawia `SQLX_OFFLINE=true` ale pliki `.sqlx` są niepoprawne
+**Problem**: Dockerfile ustawia `SQLX_OFFLINE=true` ale pliki `.sqlx` były niepoprawne
 
-**Skutek**: Docker build failuje przy kompilacji
+**Skutek**: Docker build failował przy kompilacji
 
-**Fix**: Naprawić problem #2
+**Fix**: naprawione wraz z problemem #2 — cache `.sqlx` jest teraz kompletny i poprawny.
 
 ---
 
 ## Podsumowanie Statusu Actions
 
-| Workflow | Status | Przyczyna |
+| Workflow | Status (2026-08-24) | Przyczyna |
 |----------|--------|-----------|
-| CI | ❌ Fail | Problem #2 - SQLX files |
-| Docker Build | ❌ Fail | Problem #2 - SQLX files |
-| Prepare SQLX | ❌ Fail | Problem #2 - nie może wygenerować plików |
+| CI | ✅ Powinien przejść | Problemy #1, #2, #3 naprawione; nie uruchomiono realnie w Actions w tej sesji (brak dostępu do CI z tego środowiska) — zweryfikowano lokalnie ekwiwalentem (`cargo check --all-targets`, `SQLX_OFFLINE=true cargo check`, `cargo test --lib`) |
+| Docker Build | ✅ Powinien przejść | j.w. |
+| Prepare SQLX | ✅ Niepotrzebny do odblokowania builda | cache `.sqlx` już kompletny; workflow nadal wart utrzymania jako auto-regeneracja przy zmianach zapytań |
 
-**Po naprawie #1 (PostGIS)**: CI przejdzie migracje, ale zatrzyma się na buildzie  
-**Wymagana naprawa #2**: Regeneracja plików `.sqlx`
+**Zweryfikowano lokalnie 2026-08-24**: `cargo check --all-targets` czysto (0 błędów), 35/35
+testów jednostkowych przechodzi, `SQLX_OFFLINE=true cargo check` czysto.
 
 ---
 

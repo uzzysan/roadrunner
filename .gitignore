@@ -31,3 +31,15 @@ Thumbs.db
 # Coverage
 tarpaulin-report.html
 cobertura.xml
+
+# Build output — should never be committed (was accidentally tracked, removed 2026-08-24)
+/bin/
+
+# AI-assistant tool config/memory — not project source (removed 2026-08-24)
+.serena/
+
+# Python virtualenv — stray, not part of this Rust project (removed 2026-08-24)
+.venv/
+
+# Real per-environment secrets — .env.production.example is the tracked template
+.env.production

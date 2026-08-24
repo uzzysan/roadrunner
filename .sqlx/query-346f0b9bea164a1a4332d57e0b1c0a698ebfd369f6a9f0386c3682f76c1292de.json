@@ -1,0 +1,125 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT\n            id, user_id, ticket_type as \"ticket_type: TicketType\",\n            status as \"status: TicketStatus\", qr_code, price, currency,\n            created_at, valid_until, used_at,\n            route_id, start_stop_id, end_stop_id, metadata\n        FROM tickets\n        WHERE id = $1 AND user_id = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "ticket_type: TicketType",
+        "type_info": {
+          "Custom": {
+            "name": "ticket_type",
+            "kind": {
+              "Enum": [
+                "single",
+                "monthly",
+                "weekly",
+                "discounted"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "status: TicketStatus",
+        "type_info": {
+          "Custom": {
+            "name": "ticket_status",
+            "kind": {
+              "Enum": [
+                "active",
+                "used",
+                "expired",
+                "cancelled"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "qr_code",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "price",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "currency",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "valid_until",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 9,
+        "name": "used_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "route_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 11,
+        "name": "start_stop_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 12,
+        "name": "end_stop_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 13,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "346f0b9bea164a1a4332d57e0b1c0a698ebfd369f6a9f0386c3682f76c1292de"
+}
