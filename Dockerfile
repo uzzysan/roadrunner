@@ -9,10 +9,6 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install sqlx-cli for running migrations
-# This layer will be highly cached by Docker
-RUN cargo install sqlx-cli --version 0.7.3 --no-default-features --features postgres
-
 # Cache dependencies by building a dummy project first
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src \
@@ -39,18 +35,17 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libssl3 \
     libpq5 \
-    postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the pre-built binary and sqlx-cli from the builder stage
+# Copy the pre-built binary from the builder stage.
+# Migrations are embedded into the binary at compile time by sqlx::migrate!() (src/main.rs) and
+# run automatically on every startup — no separate migration step, CLI, or copied SQL files
+# needed at runtime. This also means migrations run correctly for a bare (non-Docker) deploy of
+# this binary, not just the container path.
 COPY --from=builder /app/target/release/roadrunner /app/roadrunner
-COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
 
-RUN chmod +x /app/roadrunner /usr/local/bin/sqlx
-
-# Copy migrations
-COPY migrations /app/migrations
+RUN chmod +x /app/roadrunner
 
 # Expose port
 EXPOSE 3000
@@ -59,5 +54,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:3000/health || exit 1
 
-# Run migrations and start app
-CMD ["/bin/sh", "-c", "until pg_isready -h postgres -U ${DB_USER:-roadrunner}; do echo 'Waiting for postgres...'; sleep 2; done; sqlx migrate run && /app/roadrunner"]
+CMD ["/app/roadrunner"]

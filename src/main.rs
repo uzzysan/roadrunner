@@ -29,6 +29,13 @@ async fn main() {
 
     info!("Connected to database");
 
+    info!("Running database migrations...");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run database migrations");
+    info!("Database migrations up to date");
+
     let ws_state = Arc::new(WsState::new());
     info!("WebSocket state initialized");
 

@@ -1,0 +1,59 @@
+version: "3.8"
+
+# Self-contained production stack for RoadRunner — designed to run on ANY dedicated VPS a
+# transportation company hands over, with no assumption of pre-existing infrastructure (no
+# existing reverse proxy, no manually-issued TLS cert). Caddy is the only service exposed to the
+# internet and handles automatic HTTPS on its own; the app and database are reachable only over
+# the internal Docker network, never published to the host. Brought up (and kept up to date) by
+# infra/install.sh — see that file for the one-command setup story.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: roadrunner-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:?set in .env.production — the domain this server is reachable at}
+      - ACME_EMAIL=${ACME_EMAIL:?set in .env.production — used only for TLS expiry notices}
+    depends_on:
+      - api
+
+  api:
+    image: ghcr.io/uzzysan/roadrunner:latest
+    container_name: roadrunner-api
+    restart: unless-stopped
+    env_file:
+      - ../.env.production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # No published host port on purpose — only Caddy is reachable from outside this box.
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: roadrunner-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DB_USER:-roadrunner}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?set in .env.production}
+      - POSTGRES_DB=${DB_NAME:-roadrunner}
+    volumes:
+      - roadrunner_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-roadrunner} -d ${DB_NAME:-roadrunner}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No published host port on purpose — the database is reachable only from the api container.
+
+volumes:
+  roadrunner_pgdata:
+  caddy_data:
+  caddy_config:
