@@ -1,0 +1,37 @@
+name: Deploy to OVH VPS
+
+# Runs after the Docker image build/push succeeds on main, or manually. SSHes into the OVH VPS
+# and runs infra/deploy.sh there (git pull + podman pull + podman-compose up), the same pattern
+# already used for the fairpact app on that host.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions), set by a human, never by
+# this workflow or by an AI session:
+#   OVH_HOST     - the VPS hostname/IP
+#   OVH_SSH_USER - the deploy user
+#   OVH_SSH_KEY  - private key for a dedicated deploy keypair (do NOT reuse a personal key;
+#                  generate one with `ssh-keygen -t ed25519 -f roadrunner_deploy_key -N ""`,
+#                  add the public half to that user's ~/.ssh/authorized_keys on the VPS, and
+#                  paste the private half in as this secret)
+#
+# One-time manual setup on the VPS itself (see infra/podman-compose.prod.yml for the full list)
+# is required before this workflow can succeed — it deploys, it doesn't bootstrap.
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OVH_HOST }}
+          username: ${{ secrets.OVH_SSH_USER }}
+          key: ${{ secrets.OVH_SSH_KEY }}
+          script: bash /opt/roadrunner/infra/deploy.sh

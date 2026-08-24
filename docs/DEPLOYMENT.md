@@ -1,5 +1,10 @@
 # Deployment Notes
 
+> **2026-08-24:** production target is now GitHub Actions → OVH VPS via Podman, mirroring the
+> `fairpact` app's convention on that host — see `infra/deploy.sh`,
+> `infra/podman-compose.prod.yml`, `.github/workflows/deploy.yml`. Coolify is no longer used.
+> The Raspberry Pi 5 section below stays as a record of the earlier dev setup.
+
 ## Container Runtime
 
 ### Development (Raspberry Pi 5)

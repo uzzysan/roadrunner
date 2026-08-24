@@ -1,0 +1,43 @@
+version: "3.8"
+
+# Production compose file for the OVH VPS, run with Podman (rootless), not Docker Compose.
+# Mirrors the `fairpact` app's convention on the same host: the app binds to 127.0.0.1 only,
+# and the host's already-containerized Nginx (see /opt/fairpact for its compose files) proxies
+# a public subdomain to it — this compose file does not attempt its own TLS/reverse proxy.
+#
+# One-time setup on the VPS (not automated — needs real server access):
+#   1. `git clone https://github.com/uzzysan/roadrunner.git /opt/roadrunner`
+#   2. Create /opt/roadrunner/.env.production with real secrets (see .env.production.example)
+#   3. Add a new Nginx vhost/subdomain pointing at 127.0.0.1:${PORT}, alongside fairpact's
+#   4. `podman login ghcr.io` once, with a token that can pull this repo's package
+#
+# Ongoing deploys are then just `scripts/deploy.sh` (see that file), driven by
+# .github/workflows/deploy.yml over SSH.
+
+services:
+  api:
+    image: ghcr.io/uzzysan/roadrunner:latest
+    container_name: roadrunner-api
+    env_file:
+      - ../.env.production
+    depends_on:
+      - postgres
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+    restart: unless-stopped
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: roadrunner-db
+    environment:
+      - POSTGRES_USER=${DB_USER:-roadrunner}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?set in .env.production}
+      - POSTGRES_DB=${DB_NAME:-roadrunner}
+    volumes:
+      - roadrunner_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+
+volumes:
+  roadrunner_pgdata:

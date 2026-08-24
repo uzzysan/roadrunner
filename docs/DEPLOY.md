@@ -1,5 +1,10 @@
 # Deployment RoadRunner
 
+> **2026-08-24:** ten wpis dotyczy wcześniejszego, ręcznego deploymentu na Raspberry Pi 5.
+> Docelowy production deployment to teraz GitHub Actions → OVH VPS (Podman) — patrz
+> `infra/deploy.sh`, `infra/podman-compose.prod.yml`, `.github/workflows/deploy.yml` w tym repo.
+> Ta strona zostaje jako zapis historyczny środowiska dev/testowego na Pi5.
+
 ## Status produkcji
 - **Serwer**: http://100.83.82.95:3000
 - **Health**: http://100.83.82.95:3000/health
