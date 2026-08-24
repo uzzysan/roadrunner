@@ -9,8 +9,10 @@ use crate::{
     config::Config,
     errors::{AppError, AppResult},
     models::payment::{
-        CreatePaymentRequest, Payment, PaymentHistoryResponse, PaymentResponse, PaymentStatus,
+        CreatePaymentRequest, Payment, PaymentHistoryResponse, PaymentMethod, PaymentResponse,
+        PaymentStatus,
     },
+    models::ticket::{Ticket, TicketStatus, TicketType},
     payments::stripe::{create_payment_record, update_payment_status, StripeService},
     state::AppState,
     tickets::TicketPricing,
@@ -44,16 +46,38 @@ pub async fn create_payment(
     AuthUser(user): AuthUser,
     Json(req): Json<CreatePaymentRequest>,
 ) -> AppResult<Json<PaymentResponse>> {
-    // Oblicz cenę biletu
-    let amount = TicketPricing::get_price(req.ticket_type);
-    let currency = "PLN";
-    let description = Some(TicketPricing::get_name(req.ticket_type));
+    // NOTE (2026-08-24 status review): this handler originally computed the price from a
+    // `req.ticket_type` field that no longer exists on `CreatePaymentRequest` (the request
+    // shape moved to `ticket_id` + `payment_method` — pay for an already-issued ticket —
+    // without this function being updated to match, which is why it failed to compile).
+    // Fixed by looking the ticket up and pricing/paying against its stored `price`/`currency`.
+    let ticket = sqlx::query_as!(
+        Ticket,
+        r#"
+        SELECT
+            id, user_id, ticket_type as "ticket_type: TicketType",
+            status as "status: TicketStatus", qr_code, price, currency,
+            created_at, valid_until, used_at,
+            route_id, start_stop_id, end_stop_id, metadata
+        FROM tickets
+        WHERE id = $1 AND user_id = $2
+        "#,
+        req.ticket_id,
+        user.sub
+    )
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Ticket not found".to_string()))?;
+
+    let amount = ticket.price;
+    let currency = ticket.currency.as_str();
+    let description = Some(TicketPricing::get_name(ticket.ticket_type));
 
     // Utwórz rekord płatności w bazie
     let payment = create_payment_record(
         &state.db,
         user.sub,
-        None, // ticket_id będzie dodany po sukcesie
+        Some(ticket.id),
         amount,
         currency,
         description,
@@ -71,7 +95,7 @@ pub async fn create_payment(
         &state.db,
         payment.id,
         PaymentStatus::Pending,
-        intent.id.as_str(),
+        Some(intent.id.as_str()),
     )
     .await?;
 

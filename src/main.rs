@@ -100,7 +100,7 @@ async fn main() {
             "/webhooks/stripe",
             post(roadrunner::handlers::payments::stripe_webhook),
         )
-        .with_state(app_state);
+        .with_state(app_state.clone());
 
     let addr = format!("0.0.0.0:{}", app_state.config.port);
     info!("Listening on {}", addr);

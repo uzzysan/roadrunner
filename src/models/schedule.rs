@@ -2,7 +2,7 @@
 //!
 //! Przechowuje informacje o odjazdach autobusów z przystanków.
 
-use chrono::{DateTime, NaiveTime, Utc};
+use chrono::{DateTime, NaiveTime, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;

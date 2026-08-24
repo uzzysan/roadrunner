@@ -1,5 +1,6 @@
 pub mod jwt;
 pub mod mfa;
+pub mod middleware;
 pub mod password;
 
 use axum::{

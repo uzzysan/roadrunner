@@ -316,6 +316,7 @@ pub async fn verify_mfa_login(
 
     let secret = user
         .mfa_secret
+        .clone()
         .ok_or_else(|| AppError::Internal("MFA secret not found".to_string()))?;
 
     // Weryfikuj kod MFA

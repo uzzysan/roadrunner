@@ -9,7 +9,7 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use chrono::{Local, NaiveTime, Weekday};
+use chrono::{Local, NaiveTime, Timelike, Weekday};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

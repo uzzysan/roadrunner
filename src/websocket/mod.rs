@@ -3,12 +3,21 @@ pub mod state;
 
 use axum::{
     extract::ws::{Message, WebSocket},
-    extract::{State, WebSocketUpgrade},
+    extract::{FromRef, State, WebSocketUpgrade},
     response::Response,
 };
 use std::sync::Arc;
 
+use crate::state::AppState;
 use crate::websocket::state::WsState;
+
+/// Lets `ws_handler` extract just the WebSocket sub-state out of the
+/// unified `AppState` the router is built with (Axum's substate pattern).
+impl FromRef<AppState> for Arc<WsState> {
+    fn from_ref(state: &AppState) -> Self {
+        state.ws.clone()
+    }
+}
 
 pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<Arc<WsState>>) -> Response {
     ws.on_upgrade(move |socket| handle_socket(socket, state))
