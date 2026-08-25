@@ -102,7 +102,7 @@ $SUDO docker compose -f infra/docker-compose.prod.yml --env-file .env.production
 $SUDO docker image prune -f >/dev/null 2>&1 || true
 
 echo "==> Done. Current status:"
-$SUDO docker compose -f infra/docker-compose.prod.yml ps
+$SUDO docker compose -f infra/docker-compose.prod.yml --env-file .env.production ps
 
 DOMAIN_OUT="$(grep -m1 '^DOMAIN=' .env.production | cut -d= -f2-)"
 echo ""
