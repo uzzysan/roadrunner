@@ -133,16 +133,26 @@ The matching public key is in the deploy user's `~/.ssh/authorized_keys` on the 
 private half also exists locally at `$HOME\.ssh\roadrunner_deploy_key` on the operator's own
 machine (confirmed working for manual SSH access, independent of GitHub Actions).
 
-## 4. Current status as of 2026-08-26 (open incident)
+## 4. Incident of 2026-08-26 — RESOLVED (self-recovered before this write-up)
+
+**Status as of this edit: the site is up.** `https://roadrunner-dev.maculewicz.pro/health` returns
+`200 OK`, and `POST /auth/login` with a bogus credential pair correctly returns `401 {"error":
+"Invalid credentials", ...}` — proving the request path all the way through to a Postgres query
+works, not just that the process is alive. All three containers are up, `api` and `postgres` report
+`(healthy)`. **This was not fixed by an operator action in this session — by the time it was
+investigated, it had already recovered.** Below is the reconstruction of what happened, since the
+original panic/crash logs could not be recovered (see caveat at the end).
 
 Timeline of the practice deploys, most recent first:
 
 - **Deploy #6** (auto-triggered after `Build and Push Docker Image #36` finished building commit
-  `b835022`) — GitHub Actions reported **success**, pulled the newest image, ran `up -d`.
+  `b835022`) — GitHub Actions reported **success**, pulled the newest image, ran `up -d`. The
+  `ghcr.io/uzzysan/roadrunner:latest` image's `Created` timestamp is `2026-08-26T06:30:45Z`, and the
+  `api` container's `StartedAt` is `2026-08-26T06:31:10Z` — 25 seconds later. That pull-and-recreate
+  is what ended the incident (see below).
 - **Deploy #5** (manual `workflow_dispatch`, triggered right after commit `b835022` was pushed) —
   also reported success, but likely ran *before* the new image had finished building (image builds
-  take ~7 minutes), so it probably redeployed with the previous image. Superseded by #6 seconds
-  later in real terms but ~7 minutes later in the Actions log.
+  take ~7 minutes), so it probably redeployed with the previous (still-broken) image.
 - **Deploy #4** — GitHub Actions reported failure, but the failure was cosmetic: all three
   containers actually came up and `postgres` reported healthy. The job only failed because of the
   missing `--env-file` bug described in §3, fixed by `b835022`.
@@ -151,46 +161,94 @@ Timeline of the practice deploys, most recent first:
   two secrets.
 - **Deploys #1–#2** — early runs, predate the current Docker+Caddy install path.
 
-**Despite Deploy #6 reporting success, `https://roadrunner-dev.maculewicz.pro/` currently returns
-HTTP 502 from Caddy.** A 502 from Caddy specifically means: DNS resolved, TLS handshake and
-certificate are fine (Caddy answered the HTTPS request at all), but Caddy could not get a valid
-response from `api:3000` on the internal network. That points at the `api` container, not at Caddy
-or DNS/TLS.
+### What the 502 actually was
 
-**Leading hypothesis, not yet confirmed:** earlier deploy attempts (#1–#4) ran against an *older*
-version of the Dockerfile/deploy pipeline, from before this session rewrote it, which may have
-applied database migrations a different way (there was an earlier iteration that used
-`sqlx-cli`/`sqlx migrate run` rather than the embedded `sqlx::migrate!()` macro now baked into the
-binary — see the git history around commits `10c30df` and earlier). If Postgres already has a
-`_sqlx_migrations` tracking table from that earlier path, and its recorded checksums/order don't
-exactly match what's now embedded in the binary, `sqlx::migrate!(...).run(&pool).await.expect(...)`
-in `src/main.rs` will panic on startup (`VersionMismatch`/`ChecksumMismatch` from the `sqlx`
-migrate module), and the `api` container will crash-loop forever — which is exactly what a
-persistent 502 from Caddy looks like from the outside. This has **not been confirmed** because no
-one has yet read the actual `api` container logs — see §5 for how.
+A 502 from Caddy means DNS resolved, TLS was fine — Caddy just couldn't get a response from
+`api:3000`. Reading Caddy's own error log for the incident window (`21:51` to `06:08` UTC — nearly
+8 hours) showed every single request failing the same way, and *not* with the "connection refused"
+you'd expect from a container that's merely slow to start:
 
-Other, less likely possibilities worth ruling out if the above isn't it: `api` still mid-restart
-when checked (unlikely — should stabilize within seconds); a bad value in `.env.production` (it's
-only generated once and never touched by redeploys, so an old/half-written value from a failed
-early run could persist); the `postgres` healthcheck passing before Postgres is actually ready to
-accept the app's connection pool.
+```
+dial tcp: lookup api on 127.0.0.11:53: server misbehaving
+```
 
-## 5. What to do next (diagnostics)
+`127.0.0.11` is Docker's embedded per-container DNS resolver. It only resolves a service name to an
+IP while that container is actually running — this error means the `api` container was **down**,
+not merely unready, for essentially the entire window. Cross-checking `journalctl -u docker` for
+that window shows `sbJoin` (network-endpoint-join) events for `roadrunner-api` firing roughly every
+60–61 seconds, non-stop, for the full ~8 hours. That cadence is the signature of a genuine crash
+loop: dockerd's restart backoff for `restart: unless-stopped` starts short and doubles up to a
+**cap of 60 seconds**, so a container that keeps dying immediately after start settles into
+retrying exactly once a minute. That matches perfectly — this was `api` crashing on every start,
+not a one-off slow boot.
 
-SSH into the VPS with the existing deploy key (same access already confirmed working) and run:
+### The migration-checksum hypothesis (previous leading theory) is RULED OUT
+
+The original version of this section suspected `sqlx::migrate!()` panicking on a checksum/version
+mismatch against a pre-existing `_sqlx_migrations` table from an older deploy pipeline. Once `api`
+finally logged a clean boot at `06:31:11`, its own migration run disproved this:
+
+```
+"SELECT version, checksum FROM _sqlx_migrations ORDER BY version"  rows_returned=0
+```
+
+Zero rows. The table was empty when this run started, and it then applied migration #1
+(`CREATE TABLE users ...`) and every migration after it from scratch, with no unique-constraint
+conflicts. If an earlier attempt had ever gotten far enough to record even the first migration,
+this query would have returned at least one row. It didn't — meaning **no previous crash-looping
+attempt ever got as far as committing a migration**, so there was nothing for a new binary to
+disagree with. Whatever was crashing, it was dying earlier than that.
+
+Postgres's own log for the entire incident window was also checked and contains **no** `FATAL`,
+authentication, or connection-error lines at all (only 2 log lines total in ~9 hours — the
+`postgis/postgis` image logs very little by default). That's consistent with `api` never
+successfully completing a DB handshake during the crash loop, though it isn't fully conclusive on
+its own since this image doesn't log `log_connections` by default.
+
+### Unresolved: the exact panic message is gone
+
+The container that was crash-looping got **replaced**, not merely restarted, when Deploy #6 pulled
+the new image at `06:30:45` — `docker inspect roadrunner-api` shows `RestartCount=0` and
+`Created == StartedAt`, i.e. this is a fresh container, and Docker does not retain a removed
+container's logs. So the actual panic/error text that was printed on every one of those ~480
+crash-loop attempts is unrecoverable. No crontab, systemd timer, or shell history on the box shows
+anyone/anything manually intervening between `21:51` and `06:31` — the only thing that changed was
+the new image landing via the normal CI pipeline. It's plausible (not proven) that the same class
+of code change that produced commit `b835022` also touched something in the image-relevant paths
+enough to trigger a rebuild that happened to fix whatever was crashing — but that can't be
+confirmed after the fact. **If this recurs, capture `docker compose logs api` (or better, `docker
+logs <container-id>` before doing anything else) before touching the stack** — see the addition to
+§6 about durable logging.
+
+## 5. Diagnostics reference (kept for the next incident)
+
+SSH into the VPS with the existing deploy key (same access confirmed working) and run:
 
 ```bash
 cd /opt/roadrunner
 sudo docker compose -f infra/docker-compose.prod.yml --env-file .env.production ps
-sudo docker compose -f infra/docker-compose.prod.yml --env-file .env.production logs api --tail=100
-sudo docker compose -f infra/docker-compose.prod.yml --env-file .env.production logs postgres --tail=50
+sudo docker compose -f infra/docker-compose.prod.yml --env-file .env.production logs api --tail=200
+sudo docker compose -f infra/docker-compose.prod.yml --env-file .env.production logs postgres --tail=100
 sudo docker compose -f infra/docker-compose.prod.yml --env-file .env.production logs caddy --tail=50
 ```
 
-Read the `api` log first — if it's crash-looping, the panic message from `sqlx::migrate!()` (or
-whatever else) will be right there, printed once per restart.
+Also useful, learned from this incident:
 
-### If it's the migration-checksum hypothesis (most likely)
+- `sudo docker inspect roadrunner-api --format 'RestartCount={{.RestartCount}} StartedAt={{.State.StartedAt}}'`
+  — a high, climbing `RestartCount` on the *same* container ID confirms an active crash loop in
+  real time (checked repeatedly a few seconds apart).
+- `sudo journalctl -u docker --since '<window start>' --until '<window end>' | grep 'roadrunner-api.*sbJoin'`
+  — a steady ~60s cadence of network-join events is the crash-loop signature even after the
+  crashing container itself has been replaced and its logs lost.
+- Caddy's own log (`logs caddy`) names the exact failure mode in `msg` — `"dial tcp: lookup api on
+  127.0.0.11:53: server misbehaving"` means the `api` container isn't running at all (crash loop or
+  fully down), as opposed to a `connection refused`, which would mean it's running but not yet
+  listening.
+- Don't restart, recreate, or `up -d` anything just to "double check" once the site is confirmed
+  healthy — that discards the only container instance whose logs prove it booted cleanly, which is
+  exactly the evidence this incident lost.
+
+### If a migration-checksum panic ever *is* confirmed in the logs
 
 Because this is a disposable practice VPS with no real data, the simplest fix is to wipe the
 Postgres volume and let a clean set of migrations apply from scratch, rather than trying to hand-
@@ -209,7 +267,9 @@ sudo docker compose -f infra/docker-compose.prod.yml --env-file .env.production 
 
 **Do not do this against a VPS holding real customer data** — this only holds true because the
 practice VPS is explicitly disposable. For a real deploy, a checksum mismatch would need a proper
-migration reconciliation, not a wipe.
+migration reconciliation, not a wipe. **Only reach for this once the logs actually show a
+`VersionMismatch`/`ChecksumMismatch` panic** — this incident showed that hypothesis can be wrong,
+and wiping the volume destroys evidence you may still need.
 
 ### If it's something else
 
@@ -218,15 +278,26 @@ defaults/fallbacks — only `DATABASE_URL` has no fallback and will panic if uns
 `.env.production` on the box (`sudo cat /opt/roadrunner/.env.production` — contains secrets, don't
 paste it anywhere public) to check for a missing or malformed value.
 
-### Confirming the fix
+### Confirming a fix
 
 Once `api`'s log shows it bound to `0.0.0.0:3000` and stayed up (no restart loop in `docker compose
 ps` — `STATUS` should read `Up X seconds/minutes`, not cycling), reload
-`https://roadrunner-dev.maculewicz.pro/health` — should return the app's health-check response, not
-a Caddy 502.
+`https://roadrunner-dev.maculewicz.pro/health` — should return `OK`, not a Caddy 502. `/health` is a
+static handler (`src/main.rs`, `health_check()`) and doesn't touch the database, so it only proves
+the HTTP listener is up. To confirm the DB path specifically, hit an endpoint that queries Postgres,
+e.g. `POST /auth/login` with a bogus email/password — a clean `401 {"error": "Invalid
+credentials", ...}` (not a 500/502) proves the full request→pool→query→response path works.
 
 ## 6. Ongoing things to look after
 
+- **Crash-loop logs are currently unrecoverable once `docker compose up -d` recreates the
+  container** — the 2026-08-26 incident's root cause couldn't be confirmed for exactly this reason
+  (see §4). `docker`'s default `json-file` log driver keeps logs per container *ID*; a redeploy that
+  pulls a new image recreates the container (new ID) and the old logs are gone with it. Worth adding
+  either a bumped `max-size`/`max-file` on the `json-file` driver so more history survives routine
+  restarts, or forwarding container logs to a file on the host (e.g. a `local` logging driver
+  writing under `/var/log/`, or a lightweight log-shipping sidecar) so a crash loop can be diagnosed
+  after the fact instead of only in the moment it's happening.
 - **This VPS is a practice environment, not production.** Feel free to `down -v` / wipe / reinstall
   from scratch here while validating the install path — that's its entire purpose. Do not port
   that habit to a real customer's server without the reconciliation caveat in §5.
