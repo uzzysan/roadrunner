@@ -1,7 +1,7 @@
 use crate::errors::{AppError, AppResult};
 use base64::{engine::general_purpose, Engine as _};
-use totp_rs::{Algorithm, Secret, TOTP};
 use qrcode::QrCode;
+use totp_rs::{Algorithm, Secret, TOTP};
 
 /// Konfiguracja TOTP
 const TOTP_ISSUER: &str = "RoadRunner";
@@ -15,7 +15,9 @@ pub fn generate_totp_secret(user_email: &str) -> AppResult<(String, String)> {
     // Generate secret
     let secret = Secret::generate_secret();
     let secret_base32 = secret.to_encoded().to_string();
-    let secret_bytes = secret.to_bytes().map_err(|e| AppError::Internal(format!("Secret err: {}", e)))?;
+    let secret_bytes = secret
+        .to_bytes()
+        .map_err(|e| AppError::Internal(format!("Secret err: {}", e)))?;
 
     let totp = TOTP::new(
         Algorithm::SHA1,
@@ -24,7 +26,7 @@ pub fn generate_totp_secret(user_email: &str) -> AppResult<(String, String)> {
         30,
         secret_bytes,
         Some(TOTP_ISSUER.to_string()),
-        user_email.to_string()
+        user_email.to_string(),
     )
     .map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
 
@@ -43,7 +45,9 @@ pub fn generate_totp_secret(user_email: &str) -> AppResult<(String, String)> {
 /// * `bool` - true jeśli kod jest prawidłowy
 pub fn verify_totp(secret: &str, code: &str) -> AppResult<bool> {
     let secret_obj = Secret::Encoded(secret.to_string());
-    let secret_bytes = secret_obj.to_bytes().map_err(|e| AppError::Internal(format!("Invalid secret: {}", e)))?;
+    let secret_bytes = secret_obj
+        .to_bytes()
+        .map_err(|e| AppError::Internal(format!("Invalid secret: {}", e)))?;
 
     let totp = TOTP::new(
         Algorithm::SHA1,
@@ -52,7 +56,7 @@ pub fn verify_totp(secret: &str, code: &str) -> AppResult<bool> {
         30,
         secret_bytes,
         Some(TOTP_ISSUER.to_string()),
-        TOTP_ACCOUNT_NAME.to_string()
+        TOTP_ACCOUNT_NAME.to_string(),
     )
     .map_err(|e| AppError::Internal(format!("Failed to create TOTP: {}", e)))?;
 
@@ -101,7 +105,7 @@ mod tests {
             30,
             secret_obj.to_bytes().unwrap(),
             Some(TOTP_ISSUER.to_string()),
-            TOTP_ACCOUNT_NAME.to_string()
+            TOTP_ACCOUNT_NAME.to_string(),
         )
         .unwrap();
 

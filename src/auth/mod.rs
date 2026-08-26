@@ -12,7 +12,6 @@ use axum::{
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use std::sync::Arc;
 
-use crate::config::Config;
 use crate::state::AppState;
 
 #[derive(Debug, Clone)]
@@ -80,7 +79,7 @@ pub async fn auth_middleware(
 ///     ));
 /// ```
 pub async fn require_role(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     request: Request<axum::body::Body>,
     next: Next,
     allowed_roles: Vec<crate::models::user::UserRole>,

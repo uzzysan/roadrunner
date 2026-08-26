@@ -1,6 +1,5 @@
 pub mod qr;
 
-use crate::errors::AppError;
 use crate::models::ticket::TicketType;
 
 /// Cennik biletów

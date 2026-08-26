@@ -13,10 +13,10 @@ use uuid::Uuid;
 #[sqlx(type_name = "driver_status", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum DriverStatus {
-    Active,     // Aktywny
-    OnLeave,    // Na urlopie
-    Suspended,  // Zawieszony
-    Inactive,   // Nieaktywny
+    Active,    // Aktywny
+    OnLeave,   // Na urlopie
+    Suspended, // Zawieszony
+    Inactive,  // Nieaktywny
 }
 
 impl DriverStatus {

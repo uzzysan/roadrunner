@@ -3,19 +3,14 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "relationship_type")]
 pub enum RelationshipType {
     Mother,
     Father,
     LegalGuardian,
+    #[default]
     Other,
-}
-
-impl Default for RelationshipType {
-    fn default() -> Self {
-        RelationshipType::Other
-    }
 }
 
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]

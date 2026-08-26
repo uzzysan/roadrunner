@@ -22,6 +22,12 @@ pub enum AppError {
     Database(sqlx::Error),
     /// Błąd walidacji (validator crate)
     Validation(validator::ValidationErrors),
+    /// Błąd bazy danych ze zserializowaną treścią (transit handlers: routes/stops/schedules)
+    DatabaseError(String),
+    /// Błąd walidacji ze zserializowaną treścią (transit handlers)
+    ValidationError(String),
+    /// Błąd wewnętrzny ze zserializowaną treścią (transit handlers)
+    InternalError(String),
 }
 
 impl IntoResponse for AppError {
@@ -35,6 +41,9 @@ impl IntoResponse for AppError {
             Self::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
             Self::Database(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
             Self::Validation(e) => (StatusCode::BAD_REQUEST, e.to_string()),
+            Self::DatabaseError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            Self::ValidationError(msg) => (StatusCode::BAD_REQUEST, msg),
+            Self::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
         };
 
         let body = Json(json!({

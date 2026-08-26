@@ -16,10 +16,10 @@ use sqlx::Row;
 use uuid::Uuid;
 
 use crate::{
-    models::stop::{Stop, StopResponse},
-    models::schedule::{Schedule, ScheduleWithRoute},
-    state::AppState,
     errors::AppError,
+    models::schedule::ScheduleWithRoute,
+    models::stop::{Stop, StopResponse},
+    state::AppState,
 };
 
 /// Query parameters dla wyszukiwania pobliskich przystanków
@@ -84,16 +84,14 @@ pub async fn list_stops(
         FROM stops
         WHERE is_active = true
         ORDER BY name
-        "#
+        "#,
     )
     .fetch_all(&state.db)
     .await
     .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
     let total = stops.len() as i64;
-    let stop_responses: Vec<StopResponse> = stops.into_iter()
-        .map(StopResponse::from)
-        .collect();
+    let stop_responses: Vec<StopResponse> = stops.into_iter().map(StopResponse::from).collect();
 
     Ok(Json(StopsListResponse {
         stops: stop_responses,
@@ -102,7 +100,7 @@ pub async fn list_stops(
 }
 
 /// GET /stops/nearby?lat={}&lon={}&radius={} - pobliskie przystanki
-/// 
+///
 /// Używa PostGIS do obliczenia odległości i znalezienia przystanków w promieniu
 pub async fn nearby_stops(
     State(state): State<AppState>,
@@ -111,12 +109,12 @@ pub async fn nearby_stops(
     // Walidacja współrzędnych
     if query.lat < -90.0 || query.lat > 90.0 {
         return Err(AppError::ValidationError(
-            "Szerokość geograficzna musi być między -90 a 90".to_string()
+            "Szerokość geograficzna musi być między -90 a 90".to_string(),
         ));
     }
     if query.lon < -180.0 || query.lon > 180.0 {
         return Err(AppError::ValidationError(
-            "Długość geograficzna musi być między -180 a 180".to_string()
+            "Długość geograficzna musi być między -180 a 180".to_string(),
         ));
     }
 
@@ -144,9 +142,9 @@ pub async fn nearby_stops(
           )
         ORDER BY distance
         LIMIT 50
-        "#
+        "#,
     )
-    .bind(query.lon)  // PostGIS: ST_MakePoint(x, y) = (lon, lat)
+    .bind(query.lon) // PostGIS: ST_MakePoint(x, y) = (lon, lat)
     .bind(query.lat)
     .bind(query.radius)
     .fetch_all(&state.db)
@@ -157,17 +155,29 @@ pub async fn nearby_stops(
 
     for row in rows {
         let stop = Stop {
-            id: row.try_get("id").map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            name: row.try_get("name").map_err(|e| AppError::DatabaseError(e.to_string()))?,
+            id: row
+                .try_get("id")
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
+            name: row
+                .try_get("name")
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
             description: row.try_get("description").ok(),
-            location: row.try_get("location").map_err(|e| AppError::DatabaseError(e.to_string()))?,
+            location: row
+                .try_get("location")
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
             address: row.try_get("address").ok(),
             amenities: row.try_get("amenities").ok(),
-            is_active: row.try_get("is_active").map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            created_at: row.try_get("created_at").map_err(|e| AppError::DatabaseError(e.to_string()))?,
+            is_active: row
+                .try_get("is_active")
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
+            created_at: row
+                .try_get("created_at")
+                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
         };
 
-        let distance: f64 = row.try_get("distance").map_err(|e| AppError::DatabaseError(e.to_string()))?;
+        let distance: f64 = row
+            .try_get("distance")
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
         nearby_stops.push(NearbyStopResponse {
             stop: StopResponse::from(stop),
@@ -196,7 +206,7 @@ pub async fn get_stop(
             created_at
         FROM stops
         WHERE id = $1 AND is_active = true
-        "#
+        "#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -208,23 +218,25 @@ pub async fn get_stop(
 }
 
 /// GET /stops/:id/schedules - rozkład jazdy dla przystanku
-/// 
+///
 /// Zwraca wszystkie odjazdy z danego przystanku pogrupowane według linii
 pub async fn get_stop_schedules(
     State(state): State<AppState>,
     Path(stop_id): Path<Uuid>,
 ) -> Result<Json<Vec<ScheduleWithRoute>>, AppError> {
     // Sprawdź czy przystanek istnieje
-    let stop_exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM stops WHERE id = $1 AND is_active = true)"
-    )
-    .bind(stop_id)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+    let stop_exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM stops WHERE id = $1 AND is_active = true)")
+            .bind(stop_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
     if !stop_exists {
-        return Err(AppError::NotFound(format!("Przystanek o ID {} nie istnieje", stop_id)));
+        return Err(AppError::NotFound(format!(
+            "Przystanek o ID {} nie istnieje",
+            stop_id
+        )));
     }
 
     let schedules = sqlx::query_as::<_, ScheduleWithRoute>(
@@ -247,7 +259,7 @@ pub async fn get_stop_schedules(
           AND s.is_active = true
           AND r.is_active = true
         ORDER BY s.departure_time
-        "#
+        "#,
     )
     .bind(stop_id)
     .fetch_all(&state.db)
@@ -264,7 +276,7 @@ pub async fn search_stops(
 ) -> Result<Json<Vec<StopResponse>>, AppError> {
     if request.query.trim().is_empty() {
         return Err(AppError::ValidationError(
-            "Zapytanie wyszukiwania nie może być puste".to_string()
+            "Zapytanie wyszukiwania nie może być puste".to_string(),
         ));
     }
 
@@ -296,24 +308,22 @@ pub async fn search_stops(
             END,
             name
         LIMIT $3
-        "#
+        "#,
     )
     .bind(&search_pattern)
-    .bind(format!("{}%", request.query))  // Exact prefix match priority
+    .bind(format!("{}%", request.query)) // Exact prefix match priority
     .bind(request.limit)
     .fetch_all(&state.db)
     .await
     .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
-    let stop_responses: Vec<StopResponse> = stops.into_iter()
-        .map(StopResponse::from)
-        .collect();
+    let stop_responses: Vec<StopResponse> = stops.into_iter().map(StopResponse::from).collect();
 
     Ok(Json(stop_responses))
 }
 
 /// GET /stops/:id/routes - linie obsługujące dany przystanek
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct RouteAtStop {
     pub route_id: Uuid,
     pub route_name: String,
@@ -328,16 +338,18 @@ pub async fn get_stop_routes(
     Path(stop_id): Path<Uuid>,
 ) -> Result<Json<Vec<RouteAtStop>>, AppError> {
     // Sprawdź czy przystanek istnieje
-    let stop_exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM stops WHERE id = $1 AND is_active = true)"
-    )
-    .bind(stop_id)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+    let stop_exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM stops WHERE id = $1 AND is_active = true)")
+            .bind(stop_id)
+            .fetch_one(&state.db)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
     if !stop_exists {
-        return Err(AppError::NotFound(format!("Przystanek o ID {} nie istnieje", stop_id)));
+        return Err(AppError::NotFound(format!(
+            "Przystanek o ID {} nie istnieje",
+            stop_id
+        )));
     }
 
     let routes = sqlx::query_as::<_, RouteAtStop>(
@@ -356,7 +368,7 @@ pub async fn get_stop_routes(
         WHERE rs.stop_id = $1
           AND r.is_active = true
         ORDER BY r.number
-        "#
+        "#,
     )
     .bind(stop_id)
     .fetch_all(&state.db)

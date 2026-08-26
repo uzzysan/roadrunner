@@ -5,7 +5,6 @@ use axum::{
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
 use tracing::{info, Level};
-use tracing_subscriber;
 
 use roadrunner::config::Config;
 use roadrunner::state::AppState;
@@ -88,6 +87,53 @@ async fn main() {
         .route(
             "/tickets/validate",
             post(roadrunner::handlers::tickets::validate_ticket),
+        )
+        // Routes (linie autobusowe)
+        .route("/routes", get(roadrunner::handlers::route::list_routes))
+        .route(
+            "/routes/search",
+            get(roadrunner::handlers::route::search_routes),
+        )
+        .route("/routes/:id", get(roadrunner::handlers::route::get_route))
+        .route(
+            "/routes/:id/schedules",
+            get(roadrunner::handlers::route::get_route_schedules),
+        )
+        .route(
+            "/routes/:id/geometry",
+            get(roadrunner::handlers::route::get_route_geometry),
+        )
+        // Stops (przystanki)
+        .route("/stops", get(roadrunner::handlers::stop::list_stops))
+        .route(
+            "/stops/nearby",
+            get(roadrunner::handlers::stop::nearby_stops),
+        )
+        .route(
+            "/stops/search",
+            post(roadrunner::handlers::stop::search_stops),
+        )
+        .route("/stops/:id", get(roadrunner::handlers::stop::get_stop))
+        .route(
+            "/stops/:id/schedules",
+            get(roadrunner::handlers::stop::get_stop_schedules),
+        )
+        .route(
+            "/stops/:id/routes",
+            get(roadrunner::handlers::stop::get_stop_routes),
+        )
+        // Schedules (rozkłady jazdy)
+        .route(
+            "/schedules",
+            get(roadrunner::handlers::schedule::list_schedules),
+        )
+        .route(
+            "/schedules/next",
+            get(roadrunner::handlers::schedule::next_departures),
+        )
+        .route(
+            "/schedules/today",
+            get(roadrunner::handlers::schedule::today_schedules),
         )
         // Payments
         .route(

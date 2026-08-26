@@ -6,7 +6,6 @@ use uuid::Uuid;
 
 use crate::{
     auth::middleware::AuthUser,
-    config::Config,
     errors::{AppError, AppResult},
     models::payment::{
         CreatePaymentRequest, Payment, PaymentHistoryResponse, PaymentMethod, PaymentResponse,
@@ -19,10 +18,10 @@ use crate::{
 };
 
 /// Tworzy nową płatność (inicjuje płatność w Stripe)
-/// 
+///
 /// # Endpoint
 /// POST /payments
-/// 
+///
 /// # Request
 /// ```json
 /// {
@@ -30,7 +29,7 @@ use crate::{
 ///   "payment_method": "card"
 /// }
 /// ```
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -106,10 +105,10 @@ pub async fn create_payment(
 }
 
 /// Pobiera szczegóły płatności
-/// 
+///
 /// # Endpoint
 /// GET /payments/:id
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -147,10 +146,10 @@ pub async fn get_payment(
 }
 
 /// Pobiera historię płatności użytkownika
-/// 
+///
 /// # Endpoint
 /// GET /payments
-/// 
+///
 /// # Response
 /// ```json
 /// [{
@@ -191,13 +190,13 @@ pub async fn list_payments(
 }
 
 /// Webhook Stripe - obsługa zdarzeń płatności
-/// 
+///
 /// # Endpoint
 /// POST /webhooks/stripe
-/// 
+///
 /// # Request (from Stripe)
 /// Stripe webhook payload
-/// 
+///
 /// # Response
 /// ```json
 /// { "received": true }
@@ -243,13 +242,8 @@ pub async fn stripe_webhook(
 
             if let Some(payment) = payment {
                 // Zaktualizuj status na succeeded
-                update_payment_status(
-                    &state.db,
-                    payment.id,
-                    PaymentStatus::Succeeded,
-                    None,
-                )
-                .await?;
+                update_payment_status(&state.db, payment.id, PaymentStatus::Succeeded, None)
+                    .await?;
 
                 // TODO: Utwórz bilet po udanej płatności
             }
@@ -277,13 +271,7 @@ pub async fn stripe_webhook(
             .await?;
 
             if let Some(payment) = payment {
-                update_payment_status(
-                    &state.db,
-                    payment.id,
-                    PaymentStatus::Failed,
-                    None,
-                )
-                .await?;
+                update_payment_status(&state.db, payment.id, PaymentStatus::Failed, None).await?;
             }
         }
         _ => {
