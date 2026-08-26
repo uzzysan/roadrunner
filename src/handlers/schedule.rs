@@ -193,7 +193,7 @@ pub async fn next_departures(
         WHERE s.is_active = true
           AND r.is_active = true
           AND st.is_active = true
-          AND s.departure_time >= $1
+          AND s.departure_time >= $1::time
           AND (s.day_type::text = $2 OR s.day_type = 'everyday')
         "#,
     );
