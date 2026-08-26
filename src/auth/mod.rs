@@ -70,7 +70,7 @@ pub async fn auth_middleware(
 /// * `Roles` - Lista dozwolonych ról
 ///
 /// # Example
-/// ```rust
+/// ```ignore
 /// let admin_routes = Router::new()
 ///     .route("/admin/users", get(list_users))
 ///     .layer(middleware::from_fn_with_state(
