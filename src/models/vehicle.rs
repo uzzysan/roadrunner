@@ -3,7 +3,7 @@
 //! Przechowuje informacje o pojazdach transportowych wraz z ich
 //! lokalizacją GPS, statusem i przypisaniem do kierowcy/trasy.
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -14,7 +14,7 @@ use uuid::Uuid;
 #[serde(rename_all = "snake_case")]
 pub enum VehicleType {
     #[default]
-    Bus,        // Autobus miejski
+    Bus, // Autobus miejski
     Minibus,    // Minibus
     Coach,      // Autokar
     Tram,       // Tramwaj
@@ -49,7 +49,7 @@ impl VehicleType {
 #[serde(rename_all = "snake_case")]
 pub enum FuelType {
     #[default]
-    Diesel,   // Diesel
+    Diesel, // Diesel
     Electric, // Elektryczny
     Hybrid,   // Hybrydowy
     Cng,      // CNG

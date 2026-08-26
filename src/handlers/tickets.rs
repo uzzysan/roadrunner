@@ -17,10 +17,10 @@ use crate::{
 };
 
 /// Tworzy nowy bilet
-/// 
+///
 /// # Endpoint
 /// POST /tickets
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -39,14 +39,14 @@ pub async fn create_ticket(
     Json(req): Json<CreateTicketRequest>,
 ) -> AppResult<Json<TicketResponse>> {
     // Generuj kod i QR
-    let (ticket_code, qr_code) = generate_ticket_qr()?;
+    let (ticket_code, _qr_code) = generate_ticket_qr()?;
 
     // Określ cenę na podstawie typu biletu
     let (price, currency, validity_days) = match req.ticket_type {
-        TicketType::Single => (500, "PLN", 1),        // 5 PLN, 1 dzień
-        TicketType::Weekly => (2500, "PLN", 7),       // 25 PLN, 7 dni
-        TicketType::Monthly => (8000, "PLN", 30),     // 80 PLN, 30 dni
-        TicketType::Discounted => (250, "PLN", 1),    // 2.50 PLN, 1 dzień
+        TicketType::Single => (500, "PLN", 1),     // 5 PLN, 1 dzień
+        TicketType::Weekly => (2500, "PLN", 7),    // 25 PLN, 7 dni
+        TicketType::Monthly => (8000, "PLN", 30),  // 80 PLN, 30 dni
+        TicketType::Discounted => (250, "PLN", 1), // 2.50 PLN, 1 dzień
     };
 
     let valid_until = Utc::now() + Duration::days(validity_days);
@@ -84,10 +84,10 @@ pub async fn create_ticket(
 }
 
 /// Pobiera listę biletów użytkownika
-/// 
+///
 /// # Endpoint
 /// GET /tickets
-/// 
+///
 /// # Response
 /// ```json
 /// [{
@@ -118,19 +118,16 @@ pub async fn list_tickets(
     .fetch_all(&state.db)
     .await?;
 
-    let responses: Vec<TicketResponse> = tickets
-        .into_iter()
-        .map(TicketResponse::from)
-        .collect();
+    let responses: Vec<TicketResponse> = tickets.into_iter().map(TicketResponse::from).collect();
 
     Ok(Json(responses))
 }
 
 /// Pobiera szczegóły biletu
-/// 
+///
 /// # Endpoint
 /// GET /tickets/:id
-/// 
+///
 /// # Response
 /// ```json
 /// {
@@ -167,10 +164,10 @@ pub async fn get_ticket(
 }
 
 /// Waliduje bilet (skanowanie QR)
-/// 
+///
 /// # Endpoint
 /// POST /tickets/validate
-/// 
+///
 /// # Request
 /// ```json
 /// {
@@ -182,7 +179,7 @@ pub async fn get_ticket(
 ///   }
 /// }
 /// ```
-/// 
+///
 /// # Response
 /// ```json
 /// {

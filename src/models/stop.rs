@@ -66,6 +66,7 @@ impl From<Stop> for StopResponse {
 ///
 /// # Example
 /// ```
+/// use roadrunner::models::stop::make_point;
 /// let point = make_point(21.0118, 52.2297); // Warszawa
 /// assert_eq!(point, "SRID=4326;POINT(21.0118 52.2297)");
 /// ```
@@ -83,6 +84,7 @@ pub fn make_point(longitude: f64, latitude: f64) -> String {
 ///
 /// # Example
 /// ```
+/// use roadrunner::models::stop::parse_point_wkt;
 /// let (lon, lat) = parse_point_wkt("SRID=4326;POINT(21.0118 52.2297)").unwrap();
 /// assert_eq!(lon, 21.0118);
 /// assert_eq!(lat, 52.2297);

@@ -3,7 +3,7 @@
 //! Przechowuje informacje o awariach, opóźnieniach i innych
 //! zdarzeniach wymagających powiadomienia pasażerów.
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -13,11 +13,11 @@ use uuid::Uuid;
 #[sqlx(type_name = "incident_type", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum IncidentType {
-    Breakdown,     // Awaria techniczna
-    Accident,      // Wypadek
-    Delay,         // Opóźnienie
-    RouteChange,   // Zmiana trasy
-    Other,         // Inne
+    Breakdown,   // Awaria techniczna
+    Accident,    // Wypadek
+    Delay,       // Opóźnienie
+    RouteChange, // Zmiana trasy
+    Other,       // Inne
 }
 
 impl IncidentType {
@@ -53,7 +53,7 @@ impl IncidentType {
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
     #[default]
-    Low,      // Niski - nie wpływa na rozkład
+    Low, // Niski - nie wpływa na rozkład
     Medium,   // Średni - lekkie opóźnienie
     High,     // Wysoki - poważne opóźnienie
     Critical, // Krytyczny - pojazd wyłączony z ruchu
@@ -89,10 +89,10 @@ impl Severity {
 #[sqlx(type_name = "incident_status", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum IncidentStatus {
-    Reported,     // Zgłoszony
-    InProgress,   // W trakcie rozwiązywania
-    Resolved,     // Rozwiązany
-    Cancelled,    // Anulowany
+    Reported,   // Zgłoszony
+    InProgress, // W trakcie rozwiązywania
+    Resolved,   // Rozwiązany
+    Cancelled,  // Anulowany
 }
 
 impl IncidentStatus {
@@ -283,61 +283,85 @@ pub fn generate_passenger_notification(
     route_name: &str,
     route_number: &str,
     incident_type: IncidentType,
-    severity: Severity,
+    _severity: Severity,
     estimated_delay_minutes: Option<i32>,
 ) -> (String, String) {
     let (pl, en) = match incident_type {
         IncidentType::Breakdown => {
             let pl = if let Some(minutes) = estimated_delay_minutes {
-                format!("Awaria pojazdu na linii {} ({}). Opóźnienie ok. {} min.", 
-                    route_number, route_name, minutes)
+                format!(
+                    "Awaria pojazdu na linii {} ({}). Opóźnienie ok. {} min.",
+                    route_number, route_name, minutes
+                )
             } else {
-                format!("Awaria pojazdu na linii {} ({}). Trwają prace naprawcze.", 
-                    route_number, route_name)
+                format!(
+                    "Awaria pojazdu na linii {} ({}). Trwają prace naprawcze.",
+                    route_number, route_name
+                )
             };
             let en = if let Some(minutes) = estimated_delay_minutes {
-                format!("Vehicle breakdown on line {} ({}). Delay approx. {} min.", 
-                    route_number, route_name, minutes)
+                format!(
+                    "Vehicle breakdown on line {} ({}). Delay approx. {} min.",
+                    route_number, route_name, minutes
+                )
             } else {
-                format!("Vehicle breakdown on line {} ({}). Repair work in progress.", 
-                    route_number, route_name)
+                format!(
+                    "Vehicle breakdown on line {} ({}). Repair work in progress.",
+                    route_number, route_name
+                )
             };
             (pl, en)
         }
         IncidentType::Delay => {
             let pl = if let Some(minutes) = estimated_delay_minutes {
-                format!("Opóźnienie na linii {} ({}). Opóźnienie ok. {} min.", 
-                    route_number, route_name, minutes)
+                format!(
+                    "Opóźnienie na linii {} ({}). Opóźnienie ok. {} min.",
+                    route_number, route_name, minutes
+                )
             } else {
                 format!("Opóźnienie na linii {} ({}).", route_number, route_name)
             };
             let en = if let Some(minutes) = estimated_delay_minutes {
-                format!("Delay on line {} ({}). Delay approx. {} min.", 
-                    route_number, route_name, minutes)
+                format!(
+                    "Delay on line {} ({}). Delay approx. {} min.",
+                    route_number, route_name, minutes
+                )
             } else {
                 format!("Delay on line {} ({}).", route_number, route_name)
             };
             (pl, en)
         }
         IncidentType::Accident => {
-            let pl = format!("Incydent na linii {} ({}). Pojazd zastępczy został wysłany.", 
-                route_number, route_name);
-            let en = format!("Incident on line {} ({}). Replacement vehicle has been dispatched.", 
-                route_number, route_name);
+            let pl = format!(
+                "Incydent na linii {} ({}). Pojazd zastępczy został wysłany.",
+                route_number, route_name
+            );
+            let en = format!(
+                "Incident on line {} ({}). Replacement vehicle has been dispatched.",
+                route_number, route_name
+            );
             (pl, en)
         }
         IncidentType::RouteChange => {
-            let pl = format!("Zmiana trasy linii {} ({}). Sprawdź szczegóły w aplikacji.", 
-                route_number, route_name);
-            let en = format!("Route change for line {} ({}). Check details in the app.", 
-                route_number, route_name);
+            let pl = format!(
+                "Zmiana trasy linii {} ({}). Sprawdź szczegóły w aplikacji.",
+                route_number, route_name
+            );
+            let en = format!(
+                "Route change for line {} ({}). Check details in the app.",
+                route_number, route_name
+            );
             (pl, en)
         }
         IncidentType::Other => {
-            let pl = format!("Zdarzenie na linii {} ({}). Możliwe opóźnienia.", 
-                route_number, route_name);
-            let en = format!("Incident on line {} ({}). Possible delays.", 
-                route_number, route_name);
+            let pl = format!(
+                "Zdarzenie na linii {} ({}). Możliwe opóźnienia.",
+                route_number, route_name
+            );
+            let en = format!(
+                "Incident on line {} ({}). Possible delays.",
+                route_number, route_name
+            );
             (pl, en)
         }
     };

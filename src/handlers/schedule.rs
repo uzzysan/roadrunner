@@ -9,15 +9,12 @@ use axum::{
     extract::{Query, State},
     Json,
 };
-use chrono::{Local, NaiveTime, Timelike, Weekday};
+use chrono::{Datelike, Local, NaiveTime, Timelike, Weekday};
 use serde::{Deserialize, Serialize};
+use sqlx::Row;
 use uuid::Uuid;
 
-use crate::{
-    models::schedule::{Schedule, ScheduleWithRoute, ScheduleWithStop, DayType},
-    state::AppState,
-    errors::AppError,
-};
+use crate::{errors::AppError, models::schedule::DayType, state::AppState};
 
 /// Query parameters dla filtrowania rozkładów
 #[derive(Debug, Deserialize)]
@@ -42,7 +39,7 @@ pub struct SchedulesListResponse {
 }
 
 /// Szczegóły rozkładu z powiązanymi danymi
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct ScheduleWithDetails {
     pub id: Uuid,
     pub route_id: Uuid,
@@ -72,7 +69,7 @@ pub async fn list_schedules(
             s.stop_id,
             s.arrival_time::text as arrival_time,
             s.departure_time::text as departure_time,
-            s.day_type as "day_type: DayType",
+            s.day_type,
             s.is_active,
             r.name as route_name,
             r.number as route_number,
@@ -86,7 +83,7 @@ pub async fn list_schedules(
         WHERE s.is_active = true
           AND r.is_active = true
           AND st.is_active = true
-        "#
+        "#,
     );
 
     let mut conditions = Vec::new();
@@ -162,7 +159,7 @@ pub struct NextDeparture {
 }
 
 /// GET /schedules/next - najbliższe odjazdy
-/// 
+///
 /// Zwraca najbliższe odjazdy od aktualnej godziny
 pub async fn next_departures(
     State(state): State<AppState>,
@@ -171,7 +168,7 @@ pub async fn next_departures(
     let now = Local::now();
     let current_time = now.time();
     let current_time_str = current_time.format("%H:%M:%S").to_string();
-    
+
     // Określ typ dnia na podstawie dzisiejszego dnia tygodnia
     let day_type = match now.weekday() {
         Weekday::Sat => "saturday",
@@ -197,8 +194,8 @@ pub async fn next_departures(
           AND r.is_active = true
           AND st.is_active = true
           AND s.departure_time >= $1
-          AND (s.day_type = $2 OR s.day_type = 'everyday')
-        "#
+          AND (s.day_type::text = $2 OR s.day_type = 'everyday')
+        "#,
     );
 
     if let Some(stop_id) = query.stop_id {
@@ -222,9 +219,10 @@ pub async fn next_departures(
     let mut departures = Vec::new();
 
     for row in rows {
-        let departure_time_str: String = row.try_get("departure_time")
+        let departure_time_str: String = row
+            .try_get("departure_time")
             .map_err(|e| AppError::DatabaseError(e.to_string()))?;
-        
+
         let departure_time = NaiveTime::parse_from_str(&departure_time_str, "%H:%M:%S")
             .map_err(|e| AppError::InternalError(format!("Błąd parsowania czasu: {}", e)))?;
 
@@ -234,20 +232,27 @@ pub async fn next_departures(
         let minutes_until = departure_minutes - current_minutes;
 
         departures.push(NextDeparture {
-            schedule_id: row.try_get("schedule_id")
+            schedule_id: row
+                .try_get("schedule_id")
                 .map_err(|e| AppError::DatabaseError(e.to_string()))?,
             departure_time: departure_time_str,
-            route_id: row.try_get("route_id")
+            route_id: row
+                .try_get("route_id")
                 .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            route_name: row.try_get("route_name")
+            route_name: row
+                .try_get("route_name")
                 .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            route_number: row.try_get("route_number")
+            route_number: row
+                .try_get("route_number")
                 .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            route_color: row.try_get("route_color")
+            route_color: row
+                .try_get("route_color")
                 .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            stop_id: row.try_get("stop_id")
+            stop_id: row
+                .try_get("stop_id")
                 .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            stop_name: row.try_get("stop_name")
+            stop_name: row
+                .try_get("stop_name")
                 .map_err(|e| AppError::DatabaseError(e.to_string()))?,
             minutes_until_departure: minutes_until,
         });
@@ -290,7 +295,7 @@ pub async fn today_schedules(
     let now = Local::now();
     let current_time = now.time();
     let current_time_str = current_time.format("%H:%M:%S").to_string();
-    
+
     // Określ typ dnia i nazwę
     let (day_type, day_name) = match now.weekday() {
         Weekday::Mon => ("weekday", "Poniedziałek"),
@@ -303,17 +308,25 @@ pub async fn today_schedules(
     };
 
     // Pobierz wszystkie aktywne linie
-    let routes = sqlx::query!(
+    #[derive(sqlx::FromRow)]
+    struct RouteRow {
+        id: Uuid,
+        name: String,
+        number: String,
+        color: String,
+    }
+
+    let routes = sqlx::query_as::<_, RouteRow>(
         r#"
         SELECT id, name, number, color
         FROM routes
         WHERE is_active = true
-        ORDER BY 
-            CASE 
+        ORDER BY
+            CASE
                 WHEN number ~ '^[0-9]+$' THEN number::int
                 ELSE 999999
             END
-        "#
+        "#,
     )
     .fetch_all(&state.db)
     .await
@@ -321,11 +334,19 @@ pub async fn today_schedules(
 
     let mut departures_by_route = Vec::new();
 
+    #[derive(sqlx::FromRow)]
+    struct DepartureRow {
+        schedule_id: Uuid,
+        stop_id: Uuid,
+        stop_name: String,
+        departure_time: Option<String>,
+    }
+
     for route in routes {
         // Pobierz dzisiejsze odjazdy dla tej linii
-        let departures = sqlx::query!(
+        let departures = sqlx::query_as::<_, DepartureRow>(
             r#"
-            SELECT 
+            SELECT
                 s.id as schedule_id,
                 s.stop_id,
                 st.name as stop_name,
@@ -335,12 +356,12 @@ pub async fn today_schedules(
             WHERE s.route_id = $1
               AND s.is_active = true
               AND st.is_active = true
-              AND (s.day_type = $2 OR s.day_type = 'everyday')
+              AND (s.day_type::text = $2 OR s.day_type = 'everyday')
             ORDER BY s.departure_time
             "#,
-            route.id,
-            day_type
         )
+        .bind(route.id)
+        .bind(day_type)
         .fetch_all(&state.db)
         .await
         .map_err(|e| AppError::DatabaseError(e.to_string()))?;
@@ -349,10 +370,12 @@ pub async fn today_schedules(
             let today_departures: Vec<TodayDeparture> = departures
                 .into_iter()
                 .map(|d| {
-                    let is_past = d.departure_time.as_ref()
+                    let is_past = d
+                        .departure_time
+                        .as_ref()
                         .map(|t| t < &current_time_str)
                         .unwrap_or(false);
-                    
+
                     TodayDeparture {
                         schedule_id: d.schedule_id,
                         stop_id: d.stop_id,

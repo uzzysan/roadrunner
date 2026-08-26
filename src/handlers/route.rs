@@ -14,10 +14,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    models::route::{Route, RouteResponse, RouteWithStops, StopInRoute},
-    models::schedule::{Schedule, ScheduleWithStop},
-    state::AppState,
     errors::AppError,
+    models::route::{Route, RouteResponse, StopInRoute},
+    state::AppState,
 };
 
 /// Query parameters dla filtrowania tras
@@ -72,7 +71,7 @@ pub async fn list_routes(
                     ELSE 999999
                 END,
                 number
-            "#
+            "#,
         )
         .fetch_all(&state.db)
         .await
@@ -94,7 +93,7 @@ pub async fn list_routes(
                     ELSE 999999
                 END,
                 number
-            "#
+            "#,
         )
         .fetch_all(&state.db)
         .await
@@ -102,9 +101,7 @@ pub async fn list_routes(
     .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
     let total = routes.len() as i64;
-    let route_responses: Vec<RouteResponse> = routes.into_iter()
-        .map(RouteResponse::from)
-        .collect();
+    let route_responses: Vec<RouteResponse> = routes.into_iter().map(RouteResponse::from).collect();
 
     Ok(Json(RoutesListResponse {
         routes: route_responses,
@@ -130,7 +127,7 @@ pub async fn get_route(
             created_at
         FROM routes
         WHERE id = $1 AND is_active = true
-        "#
+        "#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -153,7 +150,7 @@ pub async fn get_route(
         WHERE rs.route_id = $1
           AND s.is_active = true
         ORDER BY rs.stop_order
-        "#
+        "#,
     )
     .bind(id)
     .fetch_all(&state.db)
@@ -170,7 +167,7 @@ pub async fn get_route(
 }
 
 /// GET /routes/:id/schedules - pełny rozkład jazdy linii
-/// 
+///
 /// Zwraca rozkład pogrupowany według przystanków
 #[derive(Debug, Serialize)]
 pub struct RouteScheduleResponse {
@@ -205,7 +202,7 @@ pub async fn get_route_schedules(
             created_at
         FROM routes
         WHERE id = $1 AND is_active = true
-        "#
+        "#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -228,7 +225,7 @@ pub async fn get_route_schedules(
         WHERE rs.route_id = $1
           AND s.is_active = true
         ORDER BY rs.stop_order
-        "#
+        "#,
     )
     .bind(id)
     .fetch_all(&state.db)
@@ -248,7 +245,7 @@ pub async fn get_route_schedules(
               AND is_active = true
               AND day_type IN ('weekday', 'everyday')
             ORDER BY departure_time
-            "#
+            "#,
         )
         .bind(id)
         .bind(stop.id)
@@ -265,7 +262,7 @@ pub async fn get_route_schedules(
               AND is_active = true
               AND day_type IN ('saturday', 'everyday')
             ORDER BY departure_time
-            "#
+            "#,
         )
         .bind(id)
         .bind(stop.id)
@@ -282,7 +279,7 @@ pub async fn get_route_schedules(
               AND is_active = true
               AND day_type IN ('sunday', 'holiday', 'everyday')
             ORDER BY departure_time
-            "#
+            "#,
         )
         .bind(id)
         .bind(stop.id)
@@ -307,7 +304,7 @@ pub async fn get_route_schedules(
 }
 
 /// GET /routes/:id/geometry - geometria trasy dla mapy
-/// 
+///
 /// Zwraca listę współrzędnych przystanków w kolejności trasy
 #[derive(Debug, Serialize)]
 pub struct RouteGeometryResponse {
@@ -317,7 +314,7 @@ pub struct RouteGeometryResponse {
     pub coordinates: Vec<Coordinate>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct Coordinate {
     pub lat: f64,
     pub lon: f64,
@@ -341,7 +338,7 @@ pub async fn get_route_geometry(
             created_at
         FROM routes
         WHERE id = $1 AND is_active = true
-        "#
+        "#,
     )
     .bind(id)
     .fetch_optional(&state.db)
@@ -361,7 +358,7 @@ pub async fn get_route_geometry(
         WHERE rs.route_id = $1
           AND s.is_active = true
         ORDER BY rs.stop_order
-        "#
+        "#,
     )
     .bind(id)
     .fetch_all(&state.db)
@@ -388,7 +385,7 @@ pub async fn search_routes(
 ) -> Result<Json<Vec<RouteResponse>>, AppError> {
     if query.query.trim().is_empty() {
         return Err(AppError::ValidationError(
-            "Zapytanie wyszukiwania nie może być puste".to_string()
+            "Zapytanie wyszukiwania nie może być puste".to_string(),
         ));
     }
 
@@ -418,16 +415,14 @@ pub async fn search_routes(
             END,
             number
         LIMIT 20
-        "#
+        "#,
     )
     .bind(&search_pattern)
     .fetch_all(&state.db)
     .await
     .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
-    let route_responses: Vec<RouteResponse> = routes.into_iter()
-        .map(RouteResponse::from)
-        .collect();
+    let route_responses: Vec<RouteResponse> = routes.into_iter().map(RouteResponse::from).collect();
 
     Ok(Json(route_responses))
 }

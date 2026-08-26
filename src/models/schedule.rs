@@ -2,7 +2,7 @@
 //!
 //! Przechowuje informacje o odjazdach autobusów z przystanków.
 
-use chrono::{DateTime, NaiveTime, Timelike, Utc};
+use chrono::{DateTime, NaiveTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -48,6 +48,7 @@ impl DayType {
     }
 
     /// Parsuje string na DayType
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "weekday" | "weekdays" | "robocze" | "dni robocze" => Some(DayType::Weekday),
@@ -198,18 +199,22 @@ pub fn parse_time(time_str: &str) -> Result<NaiveTime, String> {
     if let Ok(time) = NaiveTime::parse_from_str(time_str, "%H:%M:%S") {
         return Ok(time);
     }
-    
+
     // Spróbuj "HH:MM"
     if let Ok(time) = NaiveTime::parse_from_str(time_str, "%H:%M") {
         return Ok(time);
     }
 
-    Err(format!("Nieprawidłowy format czasu: {}. Użyj HH:MM lub HH:MM:SS", time_str))
+    Err(format!(
+        "Nieprawidłowy format czasu: {}. Użyj HH:MM lub HH:MM:SS",
+        time_str
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Timelike;
 
     #[test]
     fn test_day_type_to_polish() {

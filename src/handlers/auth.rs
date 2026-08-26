@@ -60,8 +60,13 @@ pub async fn register(
     .await?;
 
     // Generuj tokeny JWT
-    let token_pair = generate_token_pair(user.id, user.email.clone(), user.role.clone(), &state.config)
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
+    let token_pair = generate_token_pair(
+        user.id,
+        user.email.clone(),
+        user.role.clone(),
+        &state.config,
+    )
+    .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(AuthResponse {
         user: UserResponse::from(user),
@@ -109,8 +114,13 @@ pub async fn login(
     }
 
     // Generuj tokeny JWT
-    let token_pair = generate_token_pair(user.id, user.email.clone(), user.role.clone(), &state.config)
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
+    let token_pair = generate_token_pair(
+        user.id,
+        user.email.clone(),
+        user.role.clone(),
+        &state.config,
+    )
+    .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(AuthResponse {
         user: UserResponse::from(user),
@@ -327,8 +337,13 @@ pub async fn verify_mfa_login(
     }
 
     // Generuj pełne tokeny
-    let token_pair = generate_token_pair(user.id, user.email.clone(), user.role.clone(), &state.config)
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
+    let token_pair = generate_token_pair(
+        user.id,
+        user.email.clone(),
+        user.role.clone(),
+        &state.config,
+    )
+    .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(VerifyMfaLoginResponse {
         user: UserResponse::from(user),
@@ -461,8 +476,13 @@ pub async fn refresh_token(
     .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     // Generuj nową parę tokenów
-    let token_pair = generate_token_pair(user.id, user.email.clone(), user.role.clone(), &state.config)
-        .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
+    let token_pair = generate_token_pair(
+        user.id,
+        user.email.clone(),
+        user.role.clone(),
+        &state.config,
+    )
+    .map_err(|e| AppError::Internal(format!("Token generation failed: {}", e)))?;
 
     Ok(Json(RefreshTokenResponse {
         access_token: token_pair.access_token,
