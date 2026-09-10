@@ -75,7 +75,7 @@ pub async fn auth_middleware(
 ///     .route("/admin/users", get(list_users))
 ///     .layer(middleware::from_fn_with_state(
 ///         state.clone(),
-///         require_role![UserRole::Admin],
+///         require_role![UserRole::CarrierAdmin],
 ///     ));
 /// ```
 pub async fn require_role(

@@ -45,13 +45,13 @@ pub async fn process_message(
         }
 
         // Pasażer: autentykacja
-        "auth_passenger" => {
+        "auth_customer" => {
             state
-                .set_client_type(client_id, ClientType::Passenger)
+                .set_client_type(client_id, ClientType::Customer)
                 .await
                 .map_err(|e| e.to_string())?;
 
-            let response = r#"{"type":"auth_success","role":"passenger"}"#;
+            let response = r#"{"type":"auth_success","role":"customer"}"#;
             let _ = socket.send(Message::Text(response.to_string())).await;
             Ok(())
         }
