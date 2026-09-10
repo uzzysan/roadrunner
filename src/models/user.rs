@@ -5,14 +5,22 @@ use uuid::Uuid;
 use validator::Validate;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, sqlx::Type, PartialEq, Eq)]
-#[sqlx(type_name = "user_role", rename_all = "lowercase")]
+#[sqlx(type_name = "user_role", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum UserRole {
+    /// End-user / ticket buyer (formerly `passenger`)
     #[default]
-    Passenger,
+    Customer,
+    /// Bus / tram operator
     Driver,
-    Attendant,
-    Parent,
-    Admin,
+    /// Chaperone / school escort (formerly `attendant`)
+    Chaperone,
+    /// Parent or legal guardian (formerly `parent`)
+    Guardian,
+    /// Carrier-level administrator (formerly `admin`)
+    CarrierAdmin,
+    /// Ticket controller / inspector
+    Controller,
 }
 
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]

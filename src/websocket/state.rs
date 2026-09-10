@@ -6,8 +6,8 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub enum ClientType {
     Driver { vehicle_id: Uuid }, // Kierowca - wysyła GPS
-    Passenger,                   // Pasażer - odbiera GPS
-    Parent { student_id: Uuid }, // Rodzic - śledzi dziecko
+    Customer,                    // Klient/pasażer - odbiera GPS
+    Parent { student_id: Uuid }, // Rodzic / opiekun - śledzi dziecko
 }
 
 /// Klient WebSocket
@@ -53,7 +53,7 @@ impl WsState {
         let client_id = Uuid::new_v4().to_string();
         let client = Client {
             id: client_id.clone(),
-            client_type: ClientType::Passenger,
+            client_type: ClientType::Customer,
             subscribed_routes: vec![],
             subscribed_vehicles: vec![],
         };

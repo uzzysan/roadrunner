@@ -54,7 +54,7 @@ pub async fn register(
         req.first_name,
         req.last_name,
         req.phone,
-        UserRole::Passenger as UserRole,
+        UserRole::Customer as UserRole,
     )
     .fetch_one(&state.db)
     .await?;
