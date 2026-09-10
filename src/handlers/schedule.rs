@@ -11,10 +11,12 @@ use axum::{
 };
 use chrono::{Datelike, Local, NaiveTime, Timelike, Weekday};
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
+use sqlx::QueryBuilder;
 use uuid::Uuid;
 
 use crate::{errors::AppError, models::schedule::DayType, state::AppState};
+
+const MAX_NEXT_LIMIT: i32 = 50;
 
 /// Query parameters dla filtrowania rozkładów
 #[derive(Debug, Deserialize)]
@@ -56,14 +58,41 @@ pub struct ScheduleWithDetails {
     pub stop_longitude: f64,
 }
 
+fn parse_query_time(value: &str) -> Result<NaiveTime, AppError> {
+    NaiveTime::parse_from_str(value, "%H:%M:%S")
+        .or_else(|_| NaiveTime::parse_from_str(value, "%H:%M"))
+        .map_err(|_| AppError::ValidationError(format!("Invalid time '{value}'")))
+}
+
+fn parse_next_limit(limit: i32) -> Result<i32, AppError> {
+    if (1..=MAX_NEXT_LIMIT).contains(&limit) {
+        Ok(limit)
+    } else {
+        Err(AppError::ValidationError(format!(
+            "limit must be between 1 and {MAX_NEXT_LIMIT}"
+        )))
+    }
+}
+
+fn format_clock(time: NaiveTime) -> String {
+    time.format("%H:%M:%S").to_string()
+}
+
 /// GET /schedules - lista rozkładów z filtrowaniem
 pub async fn list_schedules(
     State(state): State<AppState>,
     Query(query): Query<SchedulesQuery>,
 ) -> Result<Json<SchedulesListResponse>, AppError> {
-    let mut sql = String::from(
+    let from_time = query
+        .from_time
+        .as_deref()
+        .map(parse_query_time)
+        .transpose()?;
+    let to_time = query.to_time.as_deref().map(parse_query_time).transpose()?;
+
+    let mut qb = QueryBuilder::<sqlx::Postgres>::new(
         r#"
-        SELECT 
+        SELECT
             s.id,
             s.route_id,
             s.stop_id,
@@ -86,35 +115,35 @@ pub async fn list_schedules(
         "#,
     );
 
-    let mut conditions = Vec::new();
-
     if let Some(stop_id) = query.stop_id {
-        conditions.push(format!("AND s.stop_id = '{}'", stop_id));
+        qb.push(" AND s.stop_id = ");
+        qb.push_bind(stop_id);
     }
 
     if let Some(route_id) = query.route_id {
-        conditions.push(format!("AND s.route_id = '{}'", route_id));
+        qb.push(" AND s.route_id = ");
+        qb.push_bind(route_id);
     }
 
     if let Some(day_type) = query.day_type {
-        conditions.push(format!("AND s.day_type = '{:?}'", day_type).to_lowercase());
+        qb.push(" AND s.day_type = ");
+        qb.push_bind(day_type);
     }
 
-    if let Some(from_time) = query.from_time {
-        conditions.push(format!("AND s.departure_time >= '{}'", from_time));
+    if let Some(from_time) = from_time {
+        qb.push(" AND s.departure_time >= ");
+        qb.push_bind(from_time);
     }
 
-    if let Some(to_time) = query.to_time {
-        conditions.push(format!("AND s.departure_time <= '{}'", to_time));
+    if let Some(to_time) = to_time {
+        qb.push(" AND s.departure_time <= ");
+        qb.push_bind(to_time);
     }
 
-    for condition in conditions {
-        sql.push_str(&condition);
-    }
+    qb.push(" ORDER BY s.departure_time LIMIT 200");
 
-    sql.push_str(" ORDER BY s.departure_time LIMIT 200");
-
-    let rows = sqlx::query_as::<_, ScheduleWithDetails>(&sql)
+    let rows = qb
+        .build_query_as::<ScheduleWithDetails>()
         .fetch_all(&state.db)
         .await
         .map_err(|e| AppError::DatabaseError(e.to_string()))?;
@@ -165,22 +194,33 @@ pub async fn next_departures(
     State(state): State<AppState>,
     Query(query): Query<NextDeparturesQuery>,
 ) -> Result<Json<Vec<NextDeparture>>, AppError> {
+    let limit = parse_next_limit(query.limit)?;
     let now = Local::now();
     let current_time = now.time();
-    let current_time_str = current_time.format("%H:%M:%S").to_string();
 
-    // Określ typ dnia na podstawie dzisiejszego dnia tygodnia
     let day_type = match now.weekday() {
         Weekday::Sat => "saturday",
         Weekday::Sun => "sunday",
         _ => "weekday",
     };
 
-    let mut sql = String::from(
+    #[derive(sqlx::FromRow)]
+    struct NextDepartureRow {
+        schedule_id: Uuid,
+        departure_time: NaiveTime,
+        route_id: Uuid,
+        route_name: String,
+        route_number: String,
+        route_color: String,
+        stop_id: Uuid,
+        stop_name: String,
+    }
+
+    let mut qb = QueryBuilder::<sqlx::Postgres>::new(
         r#"
-        SELECT 
+        SELECT
             s.id as schedule_id,
-            s.departure_time::text as departure_time,
+            s.departure_time as departure_time,
             s.route_id,
             r.name as route_name,
             r.number as route_number,
@@ -193,70 +233,53 @@ pub async fn next_departures(
         WHERE s.is_active = true
           AND r.is_active = true
           AND st.is_active = true
-          AND s.departure_time >= $1
-          AND (s.day_type::text = $2 OR s.day_type = 'everyday')
+          AND s.departure_time >=
         "#,
     );
+    qb.push_bind(current_time);
+    qb.push(" AND (s.day_type::text = ");
+    qb.push_bind(day_type);
+    qb.push(" OR s.day_type = 'everyday')");
 
     if let Some(stop_id) = query.stop_id {
-        sql.push_str(&format!(" AND s.stop_id = '{}'", stop_id));
+        qb.push(" AND s.stop_id = ");
+        qb.push_bind(stop_id);
     }
 
     if let Some(route_id) = query.route_id {
-        sql.push_str(&format!(" AND s.route_id = '{}'", route_id));
+        qb.push(" AND s.route_id = ");
+        qb.push_bind(route_id);
     }
 
-    sql.push_str(" ORDER BY s.departure_time LIMIT $3");
+    qb.push(" ORDER BY s.departure_time LIMIT ");
+    qb.push_bind(limit);
 
-    let rows = sqlx::query(&sql)
-        .bind(&current_time_str)
-        .bind(day_type)
-        .bind(query.limit)
+    let rows = qb
+        .build_query_as::<NextDepartureRow>()
         .fetch_all(&state.db)
         .await
         .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
-    let mut departures = Vec::new();
+    let current_minutes = current_time.hour() as i64 * 60 + current_time.minute() as i64;
+    let departures = rows
+        .into_iter()
+        .map(|row| {
+            let departure_minutes =
+                row.departure_time.hour() as i64 * 60 + row.departure_time.minute() as i64;
 
-    for row in rows {
-        let departure_time_str: String = row
-            .try_get("departure_time")
-            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
-
-        let departure_time = NaiveTime::parse_from_str(&departure_time_str, "%H:%M:%S")
-            .map_err(|e| AppError::InternalError(format!("Błąd parsowania czasu: {}", e)))?;
-
-        // Oblicz minuty do odjazdu
-        let current_minutes = current_time.hour() as i64 * 60 + current_time.minute() as i64;
-        let departure_minutes = departure_time.hour() as i64 * 60 + departure_time.minute() as i64;
-        let minutes_until = departure_minutes - current_minutes;
-
-        departures.push(NextDeparture {
-            schedule_id: row
-                .try_get("schedule_id")
-                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            departure_time: departure_time_str,
-            route_id: row
-                .try_get("route_id")
-                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            route_name: row
-                .try_get("route_name")
-                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            route_number: row
-                .try_get("route_number")
-                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            route_color: row
-                .try_get("route_color")
-                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            stop_id: row
-                .try_get("stop_id")
-                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            stop_name: row
-                .try_get("stop_name")
-                .map_err(|e| AppError::DatabaseError(e.to_string()))?,
-            minutes_until_departure: minutes_until,
-        });
-    }
+            NextDeparture {
+                schedule_id: row.schedule_id,
+                departure_time: format_clock(row.departure_time),
+                route_id: row.route_id,
+                route_name: row.route_name,
+                route_number: row.route_number,
+                route_color: row.route_color,
+                stop_id: row.stop_id,
+                stop_name: row.stop_name,
+                minutes_until_departure: departure_minutes - current_minutes,
+            }
+        })
+        .collect();
 
     Ok(Json(departures))
 }
@@ -294,9 +317,7 @@ pub async fn today_schedules(
 ) -> Result<Json<TodaySchedulesResponse>, AppError> {
     let now = Local::now();
     let current_time = now.time();
-    let current_time_str = current_time.format("%H:%M:%S").to_string();
 
-    // Określ typ dnia i nazwę
     let (day_type, day_name) = match now.weekday() {
         Weekday::Mon => ("weekday", "Poniedziałek"),
         Weekday::Tue => ("weekday", "Wtorek"),
@@ -307,7 +328,6 @@ pub async fn today_schedules(
         Weekday::Sun => ("sunday", "Niedziela"),
     };
 
-    // Pobierz wszystkie aktywne linie
     #[derive(sqlx::FromRow)]
     struct RouteRow {
         id: Uuid,
@@ -339,18 +359,17 @@ pub async fn today_schedules(
         schedule_id: Uuid,
         stop_id: Uuid,
         stop_name: String,
-        departure_time: Option<String>,
+        departure_time: NaiveTime,
     }
 
     for route in routes {
-        // Pobierz dzisiejsze odjazdy dla tej linii
         let departures = sqlx::query_as::<_, DepartureRow>(
             r#"
             SELECT
                 s.id as schedule_id,
                 s.stop_id,
                 st.name as stop_name,
-                s.departure_time::text as departure_time
+                s.departure_time as departure_time
             FROM schedules s
             JOIN stops st ON s.stop_id = st.id
             WHERE s.route_id = $1
@@ -369,20 +388,12 @@ pub async fn today_schedules(
         if !departures.is_empty() {
             let today_departures: Vec<TodayDeparture> = departures
                 .into_iter()
-                .map(|d| {
-                    let is_past = d
-                        .departure_time
-                        .as_ref()
-                        .map(|t| t < &current_time_str)
-                        .unwrap_or(false);
-
-                    TodayDeparture {
-                        schedule_id: d.schedule_id,
-                        stop_id: d.stop_id,
-                        stop_name: d.stop_name,
-                        departure_time: d.departure_time.unwrap_or_default(),
-                        is_past,
-                    }
+                .map(|d| TodayDeparture {
+                    schedule_id: d.schedule_id,
+                    stop_id: d.stop_id,
+                    stop_name: d.stop_name,
+                    departure_time: format_clock(d.departure_time),
+                    is_past: d.departure_time < current_time,
                 })
                 .collect();
 
@@ -402,4 +413,41 @@ pub async fn today_schedules(
         day_name: day_name.to_string(),
         departures_by_route,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_query_time_accepts_hhmmss_and_hhmm() {
+        assert_eq!(
+            parse_query_time("08:30:00").unwrap(),
+            NaiveTime::from_hms_opt(8, 30, 0).unwrap()
+        );
+        assert_eq!(
+            parse_query_time("08:30").unwrap(),
+            NaiveTime::from_hms_opt(8, 30, 0).unwrap()
+        );
+    }
+
+    #[test]
+    fn parse_query_time_rejects_injection_and_garbage() {
+        assert!(parse_query_time("nope").is_err());
+        assert!(parse_query_time("00:00' OR 1=1 --").is_err());
+    }
+
+    #[test]
+    fn parse_next_limit_accepts_range() {
+        assert_eq!(parse_next_limit(1).unwrap(), 1);
+        assert_eq!(parse_next_limit(5).unwrap(), 5);
+        assert_eq!(parse_next_limit(50).unwrap(), 50);
+    }
+
+    #[test]
+    fn parse_next_limit_rejects_out_of_range() {
+        assert!(parse_next_limit(0).is_err());
+        assert!(parse_next_limit(-1).is_err());
+        assert!(parse_next_limit(51).is_err());
+    }
 }

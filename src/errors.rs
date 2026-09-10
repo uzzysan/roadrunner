@@ -38,12 +38,24 @@ impl IntoResponse for AppError {
             Self::Forbidden(msg) => (StatusCode::FORBIDDEN, msg),
             Self::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             Self::Conflict(msg) => (StatusCode::CONFLICT, msg),
-            Self::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
-            Self::Database(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            Self::Internal(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
+            Self::Database(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
             Self::Validation(e) => (StatusCode::BAD_REQUEST, e.to_string()),
-            Self::DatabaseError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            Self::DatabaseError(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
             Self::ValidationError(msg) => (StatusCode::BAD_REQUEST, msg),
-            Self::InternalError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg),
+            Self::InternalError(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
         };
 
         let body = Json(json!({

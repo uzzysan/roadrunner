@@ -43,3 +43,6 @@ cobertura.xml
 
 # Real per-environment secrets — .env.production.example is the tracked template
 .env.production
+
+# Deepwork session state — git-local, OpenCode-readable via .ignore
+.slim/deepwork/

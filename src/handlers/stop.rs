@@ -118,6 +118,12 @@ pub async fn nearby_stops(
         ));
     }
 
+    if query.radius < 1 || query.radius > 50_000 {
+        return Err(AppError::ValidationError(
+            "radius must be between 1 and 50000 metres".to_string(),
+        ));
+    }
+
     let rows = sqlx::query(
         r#"
         SELECT 
@@ -277,6 +283,12 @@ pub async fn search_stops(
     if request.query.trim().is_empty() {
         return Err(AppError::ValidationError(
             "Zapytanie wyszukiwania nie może być puste".to_string(),
+        ));
+    }
+
+    if request.limit < 1 || request.limit > 100 {
+        return Err(AppError::ValidationError(
+            "limit must be between 1 and 100".to_string(),
         ));
     }
 
