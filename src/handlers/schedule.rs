@@ -233,11 +233,9 @@ pub async fn next_departures(
         WHERE s.is_active = true
           AND r.is_active = true
           AND st.is_active = true
-          AND s.departure_time >=
+          AND (s.day_type::text =
         "#,
     );
-    qb.push_bind(current_time);
-    qb.push(" AND (s.day_type::text = ");
     qb.push_bind(day_type);
     qb.push(" OR s.day_type = 'everyday')");
 
@@ -251,7 +249,11 @@ pub async fn next_departures(
         qb.push_bind(route_id);
     }
 
-    qb.push(" ORDER BY s.departure_time LIMIT ");
+    // Sort by "seconds until next occurrence", wrapping at midnight:
+    // ((departure - now) + 86400) % 86400 is always in [0, 86400)
+    qb.push(" ORDER BY (EXTRACT(EPOCH FROM s.departure_time) - EXTRACT(EPOCH FROM ");
+    qb.push_bind(current_time);
+    qb.push("::time) + 86400) % 86400 LIMIT ");
     qb.push_bind(limit);
 
     let rows = qb
@@ -276,7 +278,7 @@ pub async fn next_departures(
                 route_color: row.route_color,
                 stop_id: row.stop_id,
                 stop_name: row.stop_name,
-                minutes_until_departure: departure_minutes - current_minutes,
+                minutes_until_departure: (departure_minutes - current_minutes + 1440) % 1440,
             }
         })
         .collect();
@@ -449,5 +451,36 @@ mod tests {
         assert!(parse_next_limit(0).is_err());
         assert!(parse_next_limit(-1).is_err());
         assert!(parse_next_limit(51).is_err());
+    }
+
+    // minutes_until_departure uses (dep - now + 1440) % 1440 to wrap at midnight
+
+    #[test]
+    fn minutes_until_normal_case() {
+        let current = NaiveTime::from_hms_opt(8, 0, 0).unwrap();
+        let departure = NaiveTime::from_hms_opt(8, 30, 0).unwrap();
+        let cm = current.hour() as i64 * 60 + current.minute() as i64;
+        let dm = departure.hour() as i64 * 60 + departure.minute() as i64;
+        assert_eq!((dm - cm + 1440) % 1440, 30);
+    }
+
+    #[test]
+    fn minutes_until_wraps_past_midnight() {
+        // bus at 00:05 when current time is 23:55 → 10 minutes away, not -1430
+        let current = NaiveTime::from_hms_opt(23, 55, 0).unwrap();
+        let departure = NaiveTime::from_hms_opt(0, 5, 0).unwrap();
+        let cm = current.hour() as i64 * 60 + current.minute() as i64;
+        let dm = departure.hour() as i64 * 60 + departure.minute() as i64;
+        assert_eq!((dm - cm + 1440) % 1440, 10);
+    }
+
+    #[test]
+    fn minutes_until_exactly_midnight() {
+        // bus at 00:00 when current time is 23:00 → 60 minutes
+        let current = NaiveTime::from_hms_opt(23, 0, 0).unwrap();
+        let departure = NaiveTime::from_hms_opt(0, 0, 0).unwrap();
+        let cm = current.hour() as i64 * 60 + current.minute() as i64;
+        let dm = departure.hour() as i64 * 60 + departure.minute() as i64;
+        assert_eq!((dm - cm + 1440) % 1440, 60);
     }
 }
