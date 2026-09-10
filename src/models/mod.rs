@@ -7,6 +7,7 @@ pub mod schedule;
 pub mod stop;
 pub mod student;
 pub mod ticket;
+pub mod trip;
 pub mod user;
 pub mod vehicle;
 
