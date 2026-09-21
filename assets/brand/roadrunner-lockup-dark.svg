@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 364 64" role="img" aria-labelledby="rr-dark-title rr-dark-desc">
+  <title id="rr-dark-title">RoadRunner</title>
+  <desc id="rr-dark-desc">Jasny znak i napis RoadRunner do ciemnych powierzchni.</desc>
+  <g fill="none" stroke="#5DE0CB" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 49V15h17c18 0 18 21 0 21H17m16 0 16 13"/></g><g fill="none" stroke="#F0F7F7" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M84 46V18h12c13 0 13 16 0 16H84m12 0 13 12"/>
+    <path d="M133 36c0-14-20-14-20 0s20 14 20 0"/>
+    <path d="M158 27v19m0-10c0-14-20-14-20 0s20 14 20 0"/>
+    <path d="M184 17v29m0-10c0-14-20-14-20 0s20 14 20 0"/>
+    <path d="M197 46V18h12c13 0 13 16 0 16h-12m12 0 13 12"/>
+    <path d="M229 27v11c0 11 18 11 18 0V27"/>
+    <path d="M255 46V27m0 9c0-12 18-12 18 0v10"/>
+    <path d="M281 46V27m0 9c0-12 18-12 18 0v10"/>
+    <path d="M326 41c-4 8-21 7-21-5 0-13 20-14 20-1h-19"/>
+    <path d="M334 46V27m0 9c0-8 6-11 13-8"/>
+  </g>
+</svg>

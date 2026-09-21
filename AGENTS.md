@@ -82,3 +82,6 @@ Issues live in this repo's GitHub Issues, via the `gh` CLI. See `docs/agents/iss
 
 Single-context layout (`CONTEXT.md` + `docs/adr/` at the repo root, created lazily as needed). See `docs/agents/domain.md`.
 
+### UI/UX and brand
+
+Every UI change must follow `docs/agents/ui-ux.md`, `docs/DESIGN_SYSTEM_V2.md` and its Definition of Done. Canonical values live in `design/tokens.json`; approved logo assets live in `assets/brand/`. These supersede earlier visual guidance and local orange/blue palettes. UI/UX design ownership is GPT-6; application-code implementation agents must use `gpt-5.6-sol`, per the user's instruction.

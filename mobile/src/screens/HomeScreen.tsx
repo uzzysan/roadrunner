@@ -1,90 +1,72 @@
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { AppText } from '../components/AppText';
+import { BrandMark } from '../components/BrandMark';
+import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { Screen } from '../components/Screen';
+import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../store/authStore';
+import type { MainTabParamList } from '../types';
+
+type HomeNavigationProp = BottomTabNavigationProp<MainTabParamList, 'Home'>;
 
 export function HomeScreen() {
   const { t } = useTranslation();
+  const navigation = useNavigation<HomeNavigationProp>();
   const { user } = useAuthStore();
+  const { theme } = useTheme();
+  const displayName = user?.firstName?.trim() || t('home.traveler');
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.greeting}>
-          Witaj, {user?.firstName || 'Użytkowniku'}!
-        </Text>
-        <Text style={styles.subtitle}>
-          RoadRunner - System Transportu
-        </Text>
+    <Screen
+      scroll
+      contentContainerStyle={[styles.content, { gap: theme.space.xl }]}
+      edges={['left', 'right', 'bottom']}
+    >
+      <View style={{ gap: theme.space.lg }}>
+        <BrandMark accessibilityLabel={t('brand.logoLabel')} />
+        <View style={{ gap: theme.space.xs }}>
+          <AppText accessibilityRole="header" variant="h1">
+            {t('home.greeting', { name: displayName })}
+          </AppText>
+          <AppText tone="secondary">{t('home.description')}</AppText>
+        </View>
       </View>
 
-      <View style={styles.cardsContainer}>
-        <TouchableOpacity style={styles.card}>
-          <Text style={styles.cardTitle}>Kup bilet</Text>
-          <Text style={styles.cardDescription}>
-            Szybki zakup biletu na przejazd
-          </Text>
-        </TouchableOpacity>
+      <Card style={{ gap: theme.space.lg }}>
+        <View style={{ gap: theme.space.xs }}>
+          <AppText variant="h2">{t('home.planJourney')}</AppText>
+          <AppText tone="secondary">{t('home.planJourneyDescription')}</AppText>
+        </View>
+        <Button
+          fullWidth
+          icon="map-outline"
+          label={t('home.openMap')}
+          onPress={() => navigation.navigate('Map')}
+        />
+      </Card>
 
-        <TouchableOpacity style={styles.card}>
-          <Text style={styles.cardTitle}>Śledź pojazd</Text>
-          <Text style={styles.cardDescription}>
-            Sprawdź lokalizację autobusu w czasie rzeczywistym
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.card}>
-          <Text style={styles.cardTitle}>Moje bilety</Text>
-          <Text style={styles.cardDescription}>
-            Zarządzaj swoimi biletami
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+      <Card style={{ gap: theme.space.lg }}>
+        <View style={{ gap: theme.space.xs }}>
+          <AppText variant="h2">{t('tickets.myTickets')}</AppText>
+          <AppText tone="secondary">{t('home.ticketsDescription')}</AppText>
+        </View>
+        <Button
+          fullWidth
+          icon="ticket-outline"
+          label={t('home.openTickets')}
+          onPress={() => navigation.navigate('Tickets')}
+          variant="secondary"
+        />
+      </Card>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-  },
-  header: {
-    padding: 20,
-    backgroundColor: '#2563EB',
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#DBEAFE',
-    marginTop: 4,
-  },
-  cardsContainer: {
-    padding: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-  cardDescription: {
-    fontSize: 14,
-    color: '#64748B',
-  },
+  content: { width: '100%' },
 });

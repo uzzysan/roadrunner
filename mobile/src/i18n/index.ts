@@ -21,14 +21,12 @@ export const LANGUAGES = {
   pl: {
     code: 'pl',
     name: 'Polski',
-    flag: '🇵🇱',
   },
   en: {
     code: 'en',
     name: 'English',
-    flag: '🇬🇧',
   },
-};
+} as const;
 
 export type LanguageCode = keyof typeof LANGUAGES;
 
@@ -64,17 +62,17 @@ export const setStoredLanguage = async (language: string): Promise<void> => {
 /**
  * Detect initial language based on stored preference or device locale
  */
-const detectLanguage = async (): Promise<string> => {
+const detectLanguage = async (): Promise<LanguageCode> => {
   // First check stored preference
   const storedLang = await getStoredLanguage();
   if (storedLang && LANGUAGES[storedLang as LanguageCode]) {
-    return storedLang;
+    return storedLang as LanguageCode;
   }
 
   // Fall back to device locale
-  const deviceLocale = Localization.locale.split('-')[0];
+  const deviceLocale = Localization.getLocales()[0]?.languageCode ?? 'en';
   if (LANGUAGES[deviceLocale as LanguageCode]) {
-    return deviceLocale;
+    return deviceLocale as LanguageCode;
   }
 
   // Default to English
@@ -85,6 +83,7 @@ const detectLanguage = async (): Promise<string> => {
  * Change application language
  */
 export const changeLanguage = async (language: LanguageCode): Promise<void> => {
+  await initializeI18n();
   await i18n.changeLanguage(language);
   await setStoredLanguage(language);
 };
@@ -106,12 +105,14 @@ export const getLanguageName = (code: LanguageCode): string => {
 /**
  * Initialize i18n
  */
-export const initializeI18n = async (): Promise<void> => {
-  const initialLanguage = await detectLanguage();
+let initializationPromise: Promise<void> | null = null;
 
-  await i18n
-    .use(initReactI18next)
-    .init({
+export const initializeI18n = (): Promise<void> => {
+  if (i18n.isInitialized) return Promise.resolve();
+  if (initializationPromise) return initializationPromise;
+
+  initializationPromise = detectLanguage().then(async (initialLanguage) => {
+    await i18n.use(initReactI18next).init({
       resources,
       lng: initialLanguage,
       fallbackLng: 'en',
@@ -134,13 +135,15 @@ export const initializeI18n = async (): Promise<void> => {
         }
       },
     });
+  });
+  return initializationPromise;
 };
 
 /**
  * Add a new language dynamically
  * Useful for loading languages from remote source
  */
-export const addLanguage = (code: string, translations: Record<string, any>): void => {
+export const addLanguage = (code: string, translations: Record<string, unknown>): void => {
   i18n.addResourceBundle(code, 'translation', translations, true, true);
 };
 
@@ -154,7 +157,7 @@ export const isLanguageSupported = (code: string): boolean => {
 /**
  * Get list of available languages
  */
-export const getAvailableLanguages = (): Array<{ code: LanguageCode; name: string; flag: string }> => {
+export const getAvailableLanguages = (): Array<{ code: LanguageCode; name: string }> => {
   return Object.values(LANGUAGES);
 };
 

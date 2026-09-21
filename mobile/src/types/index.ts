@@ -39,6 +39,8 @@ export interface Route {
 }
 
 export interface RouteAtStop {
+  /** Some API responses expose the route identifier as `id`; keep both forms during migration. */
+  id?: string;
   route_id: string;
   route_name: string;
   route_number: string;
@@ -94,7 +96,14 @@ export interface RouteSchedule {
 // ==================== BILETY ====================
 
 export type TicketType = 'single' | 'time' | 'period';
-export type TicketStatus = 'active' | 'used' | 'expired' | 'cancelled';
+export type TicketStatus =
+  | 'pending'
+  | 'ready'
+  | 'active'
+  | 'used'
+  | 'expired'
+  | 'cancelled'
+  | 'verification_error';
 
 export interface Ticket {
   id: string;
@@ -215,38 +224,33 @@ export interface TodayDeparture {
   is_past: boolean;
 }
 
+// ==================== ASYNC DATA ====================
+
+export type AsyncState<T, E = Error> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T; updatedAt?: string }
+  | { status: 'refreshing'; data: T; updatedAt?: string }
+  | { status: 'empty' }
+  | { status: 'error'; error: E; data?: T }
+  | { status: 'offline'; data?: T; updatedAt?: string }
+  | { status: 'stale'; data: T; updatedAt: string }
+  | { status: 'partial'; data: T; error?: E; updatedAt?: string }
+  | { status: 'permissionDenied'; permission: string };
+
 // ==================== THEME ====================
 
-export interface ThemeColors {
-  primary: string;
-  primaryDark: string;
-  secondary: string;
-  accent: string;
-  background: string;
-  surface: string;
-  card: string;
-  text: string;
-  textSecondary: string;
-  textTertiary: string;
-  border: string;
-  success: string;
-  warning: string;
-  error: string;
-  info: string;
-  disabled: string;
-  overlay: string;
-}
-
-export type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeColors = import('../theme/types').AppColors;
+export type ThemeMode = import('../theme/types').ThemePreference;
 
 // ==================== NAVIGATION ====================
 
 export type RootStackParamList = {
+  /** The only authenticated root registered during foundation stage 1. */
+  Main: undefined;
   Login: undefined;
   Register: undefined;
-  MfaSetup: { qrCode: string; secret: string };
-  MfaVerify: { email: string };
-  MainTabs: undefined;
+  /** Detail-flow contracts. Register only when their screens pass the UI v2 gate. */
   StopDetails: { stopId: string };
   RouteDetails: { routeId: string };
   TicketDetails: { ticketId: string };
@@ -257,8 +261,8 @@ export type RootStackParamList = {
 };
 
 export type MainTabParamList = {
+  Home: undefined;
   Map: undefined;
-  Routes: undefined;
   Tickets: undefined;
   Profile: undefined;
 };

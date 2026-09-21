@@ -1,669 +1,124 @@
-/**
- * RouteDetailsScreen - Ekran szczegółów linii autobusowej
- * 
- * Wyświetla:
- * - Informacje o linii (numer, nazwa, kolor)
- * - Listę przystanków w kolejności trasy
- * - Mapę z trasą
- * - Pełny rozkład jazdy
- */
-
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  TouchableOpacity,
-  FlatList,
-} from 'react-native';
-import { WebView } from 'react-native-webview';
-import { useTranslation } from 'react-i18next';
+import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { WebView } from 'react-native-webview';
 
-import { ThemedView } from '../components/ThemedView';
-import { ThemedText } from '../components/ThemedText';
-import { Card } from '../components/Card';
-import { Button } from '../components/Button';
+import { AppText, Button, Card, EmptyState, ErrorState, Screen, StatusBadge } from '../components';
+import { apiClient } from '../api/client';
 import { useTheme } from '../hooks/useTheme';
-import { api } from '../services/api';
-import { Route, StopInRoute, RouteSchedule } from '../types';
+import type { RootStackParamList, Route, RouteSchedule, StopInRoute } from '../types';
+import { classifyTransitState, getAccessibleLineColor, mapNavigationKind, serializeWebViewMessage, type TransitDataState } from './MapScreen';
 
-// Szablon HTML dla mapy z trasą
-const ROUTE_MAP_HTML = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    body { margin: 0; padding: 0; }
-    #map { height: 100vh; width: 100vw; }
-    .stop-marker {
-      background: white;
-      border: 3px solid {ROUTE_COLOR};
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: 700;
-      color: {ROUTE_COLOR};
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    }
-    .stop-marker.start {
-      background: #10B981;
-      border-color: #10B981;
-      color: white;
-    }
-    .stop-marker.end {
-      background: #EF4444;
-      border-color: #EF4444;
-      color: white;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    const map = L.map('map', {
-      zoomControl: false,
-      attributionControl: false,
-    });
+type Props = NativeStackScreenProps<RootStackParamList, 'RouteDetails'>;
+type RoutePayload = { route: Route; stops: StopInRoute[] };
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-    }).addTo(map);
+export const ROUTE_MAP_HTML = `<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline' https://unpkg.com; img-src data: https://*.tile.openstreetmap.org; connect-src https://*.tile.openstreetmap.org"/>
+<script>window.__rrLeafletFailed=false;window.__rrCssFailed=false;</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" onerror="window.__rrCssFailed=true"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onerror="window.__rrLeafletFailed=true"></script>
+<style>:root{color-scheme:light dark;--background:Canvas;--surface:Canvas;--text:CanvasText;--primary:Highlight;--route:Highlight}html,body,#map{height:100%;width:100%;margin:0;background:var(--background)}.marker{box-sizing:border-box;width:26px;height:26px;border-radius:50%;border:4px solid var(--surface);outline:2px solid var(--text);background:var(--route)}.marker.endpoint{outline-width:4px}.popup{color:var(--text);font:600 16px/24px system-ui,-apple-system,sans-serif}.leaflet-popup-content-wrapper,.leaflet-popup-tip,.leaflet-control-zoom a{background:var(--surface);color:var(--text)}.leaflet-control-attribution{background:var(--surface)!important;color:var(--text)!important}.leaflet-control-attribution a{color:var(--primary)!important}</style>
+</head><body><div id="map" role="img"></div><script>(function(){'use strict';const send=value=>window.ReactNativeWebView&&window.ReactNativeWebView.postMessage(JSON.stringify(value));if(window.__rrLeafletFailed||window.__rrCssFailed||typeof L==='undefined'){send({type:'mapUnavailable'});return}const map=L.map('map',{zoomControl:true,attributionControl:true}).setView([52.2297,21.0122],12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).on('tileerror',()=>send({type:'mapUnavailable'})).addTo(map);let markers=[];let line=null;const validColor=value=>typeof value==='string'&&/^#[0-9a-f]{6}$/i.test(value);const finite=value=>typeof value==='number'&&Number.isFinite(value);function applyTheme(tokens){if(!tokens||!tokens.colors)return;const root=document.documentElement.style;const values={'--background':tokens.colors.background,'--surface':tokens.colors.surface,'--text':tokens.colors.text,'--primary':tokens.colors.primary};Object.entries(values).forEach(([key,value])=>{if(validColor(value))root.setProperty(key,value)})}function clear(){markers.forEach(marker=>marker.remove());markers=[];if(line){line.remove();line=null}}function setRoute(message){clear();if(!message.palette||!validColor(message.palette.background)||!Array.isArray(message.stops))return;document.documentElement.style.setProperty('--route',message.palette.background);const points=[];message.stops.forEach((stop,index)=>{if(!stop||!finite(stop.latitude)||!finite(stop.longitude)||typeof stop.name!=='string')return;const endpoint=index===0||index===message.stops.length-1;const marker=L.marker([stop.latitude,stop.longitude],{icon:L.divIcon({className:'marker'+(endpoint?' endpoint':''),html:'',iconSize:[26,26],iconAnchor:[13,13]}),title:stop.name.slice(0,500),alt:stop.name.slice(0,500)});const popup=document.createElement('div');popup.className='popup';popup.textContent=stop.name.slice(0,500);marker.bindPopup(popup);marker.addTo(map);markers.push(marker);points.push([stop.latitude,stop.longitude])});if(points.length){line=L.polyline(points,{color:message.palette.background,weight:5,opacity:1}).addTo(map);map.fitBounds(line.getBounds(),{padding:[32,32]})}}function receive(event){try{const message=JSON.parse(event.data);if(!message||typeof message.type!=='string')return;if(message.type==='initialize'){applyTheme(message.tokens);document.documentElement.lang=typeof message.language==='string'?message.language:'en';document.getElementById('map').setAttribute('aria-label',typeof message.label==='string'?message.label:'')}else if(message.type==='setRoute')setRoute(message)}catch(_error){send({type:'bridgeError'})}}document.addEventListener('message',receive);window.addEventListener('message',receive);send({type:'mapReady'})}());</script></body></html>`;
 
-    const markers = [];
-    let polyline = null;
-
-    function clearMap() {
-      markers.forEach(m => m.remove());
-      markers.length = 0;
-      if (polyline) {
-        polyline.remove();
-        polyline = null;
-      }
-    }
-
-    function setRoute(data) {
-      clearMap();
-      
-      const coordinates = data.coordinates;
-      if (coordinates.length === 0) return;
-
-      // Dodaj markery dla przystanków
-      coordinates.forEach((coord, index) => {
-        const isFirst = index === 0;
-        const isLast = index === coordinates.length - 1;
-        
-        const marker = L.marker([coord.lat, coord.lon], {
-          icon: L.divIcon({
-            className: \`stop-marker \${isFirst ? 'start' : ''} \${isLast ? 'end' : ''}\`,
-            html: \`<div>\${isFirst ? 'A' : isLast ? 'B' : index + 1}</div>\`,
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
-          })
-        });
-
-        marker.bindPopup(\`<b>\${coord.stop_name}</b><br>Przystanek \${index + 1}\`);
-        marker.addTo(map);
-        markers.push(marker);
-      });
-
-      // Narysuj linię trasy
-      const latLngs = coordinates.map(c => [c.lat, c.lon]);
-      polyline = L.polyline(latLngs, {
-        color: data.routeColor,
-        weight: 4,
-        opacity: 0.8,
-      }).addTo(map);
-
-      // Dopasuj widok do trasy
-      map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
-    }
-
-    document.addEventListener('message', function(event) {
-      const data = JSON.parse(event.data);
-      if (data.type === 'setRoute') {
-        setRoute(data);
-      }
-    });
-  </script>
-</body>
-</html>
-`;
-
-interface RouteDetailsScreenProps {
-  navigation: any;
-  route: { params: { routeId: string } };
+function routePayload(value: unknown): RoutePayload | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  if (!record.route || typeof record.route !== 'object') return null;
+  return { route: record.route as Route, stops: Array.isArray(record.stops) ? record.stops as StopInRoute[] : [] };
 }
 
-interface StopSchedule {
-  stopId: string;
-  stopName: string;
-  stopOrder: number;
-  weekdayDepartures: string[];
-  saturdayDepartures: string[];
-  sundayDepartures: string[];
+function schedulesPayload(value: unknown): RouteSchedule[] {
+  if (Array.isArray(value)) return value as RouteSchedule[];
+  if (value && typeof value === 'object' && Array.isArray((value as Record<string, unknown>).schedules_by_stop)) return (value as { schedules_by_stop: RouteSchedule[] }).schedules_by_stop;
+  return [];
 }
 
-export default function RouteDetailsScreen({ navigation, route: navRoute }: RouteDetailsScreenProps) {
-  const { t } = useTranslation();
-  const { colors } = useTheme();
+function transportTime(value: string): string {
+  const match = /^(\d{1,2}):(\d{2})/.exec(value);
+  return match ? `${match[1].padStart(2, '0')}:${match[2]}` : value;
+}
+
+export default function RouteDetailsScreen({ navigation, route: navigationRoute }: Props) {
+  const { t, i18n } = useTranslation();
+  const { colors, theme, webViewTokens } = useTheme();
   const webViewRef = useRef<WebView>(null);
-  const { routeId } = navRoute.params;
-
   const [route, setRoute] = useState<Route | null>(null);
   const [stops, setStops] = useState<StopInRoute[]>([]);
-  const [schedules, setSchedules] = useState<StopSchedule[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [schedules, setSchedules] = useState<RouteSchedule[]>([]);
+  const [status, setStatus] = useState<TransitDataState>('loading');
   const [activeTab, setActiveTab] = useState<'stops' | 'schedule'>('stops');
-  const [expandedDayType, setExpandedDayType] = useState<string>('weekday');
+  const [dayType, setDayType] = useState<'weekday' | 'saturday' | 'sunday'>('weekday');
   const [selectedStop, setSelectedStop] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
+  const routeId = navigationRoute.params.routeId;
 
-  useEffect(() => {
-    loadRouteData();
-  }, [routeId]);
-
-  useEffect(() => {
-    if (stops.length > 0 && route && webViewRef.current) {
-      const mapHtml = ROUTE_MAP_HTML.replace(/{ROUTE_COLOR}/g, route.color);
-      
-      // Wyślij dane trasy do mapy
-      setTimeout(() => {
-        webViewRef.current?.postMessage(JSON.stringify({
-          type: 'setRoute',
-          routeColor: route.color,
-          coordinates: stops.map(s => ({
-            lat: s.latitude,
-            lon: s.longitude,
-            stop_name: s.name,
-          })),
-        }));
-      }, 500);
+  const palette = useMemo(() => getAccessibleLineColor(route?.color, colors.primaryContainer, colors.text, colors.onInverse, colors.onPrimaryContainer), [colors, route?.color]);
+  const load = useCallback(async (refresh = false) => {
+    const hasData = Boolean(route);
+    setStatus(refresh && hasData ? 'refreshing' : 'loading');
+    const [routeResult, scheduleResult] = await Promise.allSettled([apiClient.get(`/routes/${routeId}`), apiClient.get(`/routes/${routeId}/schedules`)]);
+    const failed = [routeResult, scheduleResult].filter(result => result.status === 'rejected');
+    const offline = failed.some(result => result.status === 'rejected' && axios.isAxiosError(result.reason) && !result.reason.response);
+    let nextRoute = route;
+    if (routeResult.status === 'fulfilled') {
+      const payload = routePayload(routeResult.value.data);
+      nextRoute = payload?.route ?? null;
+      setRoute(nextRoute); setStops(payload?.stops ?? []);
     }
-  }, [stops, route]);
+    if (scheduleResult.status === 'fulfilled') setSchedules(schedulesPayload(scheduleResult.value.data));
+    setStatus(classifyTransitState({ hasData: Boolean(nextRoute), offline, partial: failed.length === 1, failed: failed.length === 2 }));
+    if (failed.length === 0) setUpdatedAt(new Date().toISOString());
+  }, [route, routeId]);
 
-  const loadRouteData = async () => {
-    try {
-      setLoading(true);
-      const [routeResponse, schedulesResponse] = await Promise.all([
-        api.get(`/routes/${routeId}`),
-        api.get(`/routes/${routeId}/schedules`),
-      ]);
+  useEffect(() => { void load(); }, [routeId]);
+  useEffect(() => {
+    if (!route || mapReady || mapUnavailable) return;
+    const timeout = setTimeout(() => setMapUnavailable(true), 12000);
+    return () => clearTimeout(timeout);
+  }, [mapReady, mapUnavailable, route]);
+  useEffect(() => {
+    if (!mapReady || !route) return;
+    webViewRef.current?.postMessage(serializeWebViewMessage({ type: 'initialize', tokens: webViewTokens, language: i18n.language, label: t('transit_route.map_label', { route: route.number }) }));
+    webViewRef.current?.postMessage(serializeWebViewMessage({ type: 'setRoute', palette, stops: stops.map(stop => ({ name: stop.name, latitude: stop.latitude, longitude: stop.longitude })) }));
+  }, [i18n.language, mapReady, palette, route, stops, t, webViewTokens]);
 
-      setRoute(routeResponse.data.route);
-      setStops(routeResponse.data.stops);
-      setSchedules(schedulesResponse.data.schedules_by_stop);
-    } catch (error) {
-      console.error('Error loading route data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleMapMessage = useCallback((event: { nativeEvent: { data: string } }) => {
+    try { const message = JSON.parse(event.nativeEvent.data) as Record<string, unknown>; if (message.type === 'mapReady') { setMapReady(true); setMapUnavailable(false); } else if (message.type === 'mapUnavailable' || message.type === 'bridgeError') setMapUnavailable(true); }
+    catch (_error) { setMapUnavailable(true); }
+  }, []);
+  const allowNavigation = useCallback((request: { url: string }) => { const kind = mapNavigationKind(request.url); if (kind === 'internal') return true; if (kind === 'attribution') void Linking.openURL(request.url); return false; }, []);
+  const formattedUpdatedAt = updatedAt ? new Intl.DateTimeFormat(i18n.language === 'pl' ? 'pl-PL' : 'en-GB', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(updatedAt)) : t('transit_common.not_available');
 
-  const renderStopsList = () => (
-    <View style={styles.stopsList}>
-      {stops.map((stop, index) => (
-        <TouchableOpacity
-          key={stop.id}
-          style={[
-            styles.stopItem,
-            selectedStop === stop.id && { backgroundColor: route?.color + '15' },
-          ]}
-          onPress={() => {
-            setSelectedStop(stop.id === selectedStop ? null : stop.id);
-            navigation.navigate('StopDetails', { stopId: stop.id });
-          }}
-        >
-          {/* Numer przystanku */}
-          <View style={[styles.stopNumber, { backgroundColor: route?.color }]}>
-            <ThemedText style={styles.stopNumberText}>{index + 1}</ThemedText>
-          </View>
+  if (status === 'loading') return <Screen contentContainerStyle={styles.centered}><StatusBadge label={t('transit_common.loading')} tone="info" /></Screen>;
+  if ((status === 'error' || status === 'offline') && !route) return <Screen contentContainerStyle={styles.centered}><ErrorState description={t(status === 'offline' ? 'transit_common.offline_description' : 'transit_route.load_error_description')} onRetry={() => void load()} title={t(status === 'offline' ? 'transit_common.offline' : 'transit_route.load_error_title')} /></Screen>;
+  if (!route) return <Screen contentContainerStyle={styles.centered}><EmptyState description={t('transit_route.not_found_description')} icon="bus-outline" title={t('transit_route.not_found_title')} /></Screen>;
 
-          {/* Linia łącząca */}
-          {index < stops.length - 1 && (
-            <View style={[styles.connector, { backgroundColor: route?.color + '40' }]} />
-          )}
+  const stateBadge = status === 'stale' ? <StatusBadge label={t('transit_common.stale')} tone="stale" /> : status === 'partial' ? <StatusBadge label={t('transit_common.partial')} tone="warning" /> : status === 'refreshing' ? <StatusBadge label={t('transit_common.refreshing')} tone="info" /> : null;
+  const selectedSchedules = selectedStop ? schedules.filter(schedule => schedule.stop_id === selectedStop) : schedules;
 
-          {/* Informacje o przystanku */}
-          <View style={styles.stopInfo}>
-            <ThemedText style={styles.stopName}>{stop.name}</ThemedText>
-            {stop.is_optional && (
-              <View style={styles.optionalBadge}>
-                <ThemedText style={styles.optionalText}>
-                  {t('routeDetails.onRequest')}
-                </ThemedText>
-              </View>
-            )}
-          </View>
-
-          <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
-      ))}
+  return <Screen padded={false} scroll contentContainerStyle={styles.grow}>
+    <View style={styles.mapContainer}>
+      <WebView accessibilityLabel={t('transit_route.map_label', { route: route.number })} domStorageEnabled={false} javaScriptEnabled mixedContentMode="never" onError={() => setMapUnavailable(true)} onHttpError={() => setMapUnavailable(true)} onMessage={handleMapMessage} onShouldStartLoadWithRequest={allowNavigation} originWhitelist={['about:blank', 'https://app.roadrunner.invalid']} ref={webViewRef} source={{ html: ROUTE_MAP_HTML, baseUrl: 'https://app.roadrunner.invalid/' }} style={styles.map} />
+      {mapUnavailable ? <View style={[styles.mapFallback, { backgroundColor: colors.surface }]}><ErrorState description={t('transit_route.map_unavailable_description')} onRetry={() => { setMapReady(false); setMapUnavailable(false); webViewRef.current?.reload(); }} title={t('transit_route.map_unavailable_title')} /></View> : null}
     </View>
-  );
-
-  const renderSchedule = () => {
-    const filteredSchedules = selectedStop
-      ? schedules.filter(s => s.stop_id === selectedStop)
-      : schedules;
-
-    if (filteredSchedules.length === 0) {
-      return (
-        <View style={styles.emptySchedule}>
-          <ThemedText style={styles.emptyScheduleText}>
-            {t('routeDetails.noSchedule')}
-          </ThemedText>
-        </View>
-      );
-    }
-
-    return (
-      <View>
-        {/* Filtr przystanków */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.stopFilter}
-        >
-          <TouchableOpacity
-            style={[
-              styles.stopFilterChip,
-              !selectedStop && styles.stopFilterChipActive,
-              { borderColor: route?.color },
-            ]}
-            onPress={() => setSelectedStop(null)}
-          >
-            <ThemedText
-              style={[
-                styles.stopFilterText,
-                !selectedStop && { color: route?.color },
-              ]}
-            >
-              {t('routeDetails.allStops')}
-            </ThemedText>
-          </TouchableOpacity>
-          {stops.map(stop => (
-            <TouchableOpacity
-              key={stop.id}
-              style={[
-                styles.stopFilterChip,
-                selectedStop === stop.id && [
-                  styles.stopFilterChipActive,
-                  { backgroundColor: route?.color + '20' },
-                ],
-                { borderColor: route?.color },
-              ]}
-              onPress={() => setSelectedStop(stop.id === selectedStop ? null : stop.id)}
-            >
-              <ThemedText
-                style={[
-                  styles.stopFilterText,
-                  selectedStop === stop.id && { color: route?.color },
-                ]}
-                numberOfLines={1}
-              >
-                {stop.stop_order}. {stop.name}
-              </ThemedText>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Zakładki dni */}
-        <View style={styles.dayTabs}>
-          {['weekday', 'saturday', 'sunday'].map(day => (
-            <TouchableOpacity
-              key={day}
-              style={[
-                styles.dayTab,
-                expandedDayType === day && [
-                  styles.dayTabActive,
-                  { borderBottomColor: route?.color },
-                ],
-              ]}
-              onPress={() => setExpandedDayType(day)}
-            >
-              <ThemedText
-                style={[
-                  styles.dayTabText,
-                  expandedDayType === day && [
-                    styles.dayTabTextActive,
-                    { color: route?.color },
-                  ],
-                ]}
-              >
-                {t(`dayTypes.${day}`)}
-              </ThemedText>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Rozkład dla każdego przystanku */}
-        {filteredSchedules.map(schedule => (
-          <Card key={schedule.stop_id} style={styles.scheduleCard}>
-            <ThemedText style={styles.scheduleStopName}>
-              {schedule.stop_order}. {schedule.stop_name}
-            </ThemedText>
-
-            <View style={styles.departuresContainer}>
-              {(expandedDayType === 'weekday' ? schedule.weekday_departures :
-                expandedDayType === 'saturday' ? schedule.saturday_departures :
-                  schedule.sunday_departures
-              ).map((time, idx) => (
-                <View
-                  key={idx}
-                  style={[styles.departureTime, { backgroundColor: route?.color + '15' }]}
-                >
-                  <ThemedText style={[styles.departureTimeText, { color: route?.color }]}>
-                    {time}
-                  </ThemedText>
-                </View>
-              ))}
-            </View>
-          </Card>
-        ))}
-      </View>
-    );
-  };
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </ThemedView>
-    );
-  }
-
-  if (!route) {
-    return (
-      <ThemedView style={styles.errorContainer}>
-        <Ionicons name="alert-circle" size={64} color={colors.error} />
-        <ThemedText style={styles.errorText}>{t('routeDetails.notFound')}</ThemedText>
-      </ThemedView>
-    );
-  }
-
-  return (
-    <ThemedView style={styles.container}>
-      {/* Nagłówek z mapą */}
-      <View style={styles.header}>
-        <WebView
-          ref={webViewRef}
-          originWhitelist={['*']}
-          source={{ html: ROUTE_MAP_HTML.replace(/{ROUTE_COLOR}/g, route.color) }}
-          style={styles.map}
-        />
-
-        {/* Informacje o linii */}
-        <View style={[styles.routeInfo, { backgroundColor: colors.card }]}>
-          <View style={[styles.routeBadge, { backgroundColor: route.color }]}>
-            <ThemedText style={styles.routeNumber}>{route.number}</ThemedText>
-          </View>
-          <View style={styles.routeTextInfo}>
-            <ThemedText style={styles.routeName}>{route.name}</ThemedText>
-            <ThemedText style={[styles.routeDescription, { color: colors.textSecondary }]}>
-              {route.description}
-            </ThemedText>
-          </View>
-        </View>
-      </View>
-
-      {/* Zakładki */}
-      <View style={[styles.tabs, { backgroundColor: colors.card }]}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'stops' && styles.tabActive]}
-          onPress={() => setActiveTab('stops')}
-        >
-          <Ionicons
-            name="location"
-            size={18}
-            color={activeTab === 'stops' ? route.color : colors.textSecondary}
-          />
-          <ThemedText
-            style={[
-              styles.tabText,
-              { color: activeTab === 'stops' ? route.color : colors.textSecondary },
-            ]}
-          >
-            {t('routeDetails.stops')} ({stops.length})
-          </ThemedText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'schedule' && styles.tabActive]}
-          onPress={() => setActiveTab('schedule')}
-        >
-          <Ionicons
-            name="time"
-            size={18}
-            color={activeTab === 'schedule' ? route.color : colors.textSecondary}
-          />
-          <ThemedText
-            style={[
-              styles.tabText,
-              { color: activeTab === 'schedule' ? route.color : colors.textSecondary },
-            ]}
-          >
-            {t('routeDetails.schedule')}
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
-
-      {/* Zawartość */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {activeTab === 'stops' ? renderStopsList() : renderSchedule()}
-      </ScrollView>
-    </ThemedView>
-  );
+    <View style={[styles.body, { gap: theme.space.lg, padding: theme.space.lg }]}>
+      <View style={styles.titleRow}><View style={[styles.routeBadge, { backgroundColor: palette.background, borderRadius: theme.radius.md }]}><AppText style={{ color: palette.foreground }} variant="h3">{route.number}</AppText></View><View style={styles.flex}><AppText accessibilityRole="header" variant="h1">{route.name}</AppText>{route.description ? <AppText tone="secondary">{route.description}</AppText> : null}</View></View>
+      <Card><View style={styles.meta}><AppText tone="secondary" variant="caption">{t('transit_common.source')}: {t('transit_route.source_value')}</AppText><AppText tone="secondary" variant="caption">{t('transit_common.retrieved_at')}: {formattedUpdatedAt}</AppText><AppText tone="secondary" variant="caption">{t('transit_common.timezone')}: {t('transit_common.timezone_unavailable')}</AppText><AppText tone="secondary" variant="caption">{t('transit_common.schedule_kind')}: {t('transit_common.scheduled')}</AppText>{stateBadge}<Button label={t('transit_common.refresh')} loading={status === 'refreshing'} onPress={() => void load(true)} variant="quiet" /></View></Card>
+      <View accessibilityRole="tablist" style={[styles.tabs, { borderColor: colors.borderStrong, borderRadius: theme.radius.md }]}>{(['stops', 'schedule'] as const).map(tab => <Pressable accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab }} key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, { minHeight: theme.size.touch }, activeTab === tab && { backgroundColor: colors.primaryContainer }]}><Ionicons accessibilityElementsHidden color={activeTab === tab ? colors.onPrimaryContainer : colors.textSecondary} name={tab === 'stops' ? 'location-outline' : 'time-outline'} size={20} /><AppText style={{ color: activeTab === tab ? colors.onPrimaryContainer : colors.textSecondary }} variant="label">{t(`transit_route.${tab}`)}{tab === 'stops' ? ` (${stops.length})` : ''}</AppText></Pressable>)}</View>
+      {activeTab === 'stops' ? (stops.length ? <View style={{ gap: theme.space.sm }}>{stops.map((stop, index) => <Card accessibilityLabel={t('transit_route.open_stop', { name: stop.name })} key={stop.id} onPress={() => { setSelectedStop(stop.id); navigation.navigate('StopDetails', { stopId: stop.id }); }} style={selectedStop === stop.id ? { backgroundColor: colors.primaryContainer, borderColor: colors.primary } : undefined}><View style={styles.stopRow}><View style={[styles.stopNumber, { backgroundColor: palette.background, borderRadius: theme.radius.pill }]}><AppText style={{ color: palette.foreground }} variant="label">{index + 1}</AppText></View><View style={styles.flex}><AppText variant="bodyStrong">{stop.name}</AppText>{stop.is_optional ? <StatusBadge label={t('transit_route.on_request')} tone="info" /> : null}</View><Ionicons accessibilityElementsHidden color={colors.textSecondary} name="chevron-forward-outline" size={theme.size.icon} /></View></Card>)}</View> : <EmptyState description={t('transit_route.no_stops_description')} icon="location-outline" title={t('transit_route.no_stops_title')} />) : <View style={{ gap: theme.space.lg }}>
+        <View accessibilityRole="tablist" style={styles.dayTabs}>{(['weekday', 'saturday', 'sunday'] as const).map(day => <Pressable accessibilityRole="tab" accessibilityState={{ selected: dayType === day }} key={day} onPress={() => setDayType(day)} style={[styles.dayTab, { borderColor: dayType === day ? colors.primary : colors.borderStrong, minHeight: theme.size.touch }, dayType === day && { backgroundColor: colors.primaryContainer }]}><AppText style={{ color: dayType === day ? colors.onPrimaryContainer : colors.text }} variant="label">{t(`dayTypes.${day}`)}</AppText></Pressable>)}</View>
+        {selectedSchedules.length ? selectedSchedules.map(schedule => { const departures = dayType === 'weekday' ? schedule.weekday_departures : dayType === 'saturday' ? schedule.saturday_departures : schedule.sunday_departures; return <Card key={schedule.stop_id}><AppText variant="h3">{schedule.stop_order}. {schedule.stop_name}</AppText><AppText tone="secondary" variant="caption">{t('transit_common.scheduled')} · {t('transit_common.timezone_unavailable')}</AppText>{departures.length ? <View style={styles.departures}>{departures.map((time, index) => <View key={`${time}-${index}`} style={[styles.departure, { backgroundColor: colors.surfaceMuted, borderRadius: theme.radius.sm }]}><AppText style={styles.tabular} variant="label">{transportTime(time)}</AppText></View>)}</View> : <AppText tone="secondary">{t('transit_route.no_departures_for_day')}</AppText>}</Card>; }) : <EmptyState description={t('transit_route.no_schedule_description')} icon="calendar-outline" title={t('transit_route.no_schedule_title')} />}
+      </View>}
+    </View>
+  </Screen>;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  errorText: {
-    marginTop: 16,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  header: {
-    height: 280,
-  },
-  map: {
-    flex: 1,
-  },
-  routeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  routeBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  routeNumber: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  routeTextInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  routeName: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  routeDescription: {
-    fontSize: 14,
-    marginTop: 2,
-  },
-  tabs: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
-  stopsList: {
-    paddingLeft: 8,
-  },
-  stopItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  stopNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  stopNumberText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  connector: {
-    position: 'absolute',
-    left: 23,
-    top: 36,
-    width: 2,
-    height: 32,
-  },
-  stopInfo: {
-    flex: 1,
-    marginLeft: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  stopName: {
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  optionalBadge: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 8,
-  },
-  optionalText: {
-    fontSize: 10,
-    opacity: 0.7,
-  },
-  stopFilter: {
-    marginBottom: 16,
-  },
-  stopFilterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginRight: 8,
-    maxWidth: 200,
-  },
-  stopFilterChipActive: {
-    borderWidth: 0,
-  },
-  stopFilterText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  dayTabs: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  dayTab: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  dayTabActive: {
-    borderBottomWidth: 2,
-  },
-  dayTabText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  dayTabTextActive: {
-    fontWeight: '600',
-  },
-  scheduleCard: {
-    marginBottom: 12,
-  },
-  scheduleStopName: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  departuresContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  departureTime: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 56,
-    alignItems: 'center',
-  },
-  departureTimeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  emptySchedule: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyScheduleText: {
-    fontSize: 14,
-    opacity: 0.6,
-  },
+  body: {}, centered: { alignItems: 'center', flex: 1, justifyContent: 'center' }, dayTab: { alignItems: 'center', borderBottomWidth: 2, flex: 1, justifyContent: 'center', paddingHorizontal: 4 }, dayTabs: { flexDirection: 'row' }, departure: { minWidth: 64, paddingHorizontal: 12, paddingVertical: 8 }, departures: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }, flex: { flex: 1 }, grow: { flexGrow: 1 }, map: { flex: 1 }, mapContainer: { height: 220, position: 'relative' }, mapFallback: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', padding: 16 }, meta: { alignItems: 'flex-start', gap: 8 }, routeBadge: { alignItems: 'center', justifyContent: 'center', minHeight: 56, minWidth: 56, padding: 8 }, stopNumber: { alignItems: 'center', height: 32, justifyContent: 'center', width: 32 }, stopRow: { alignItems: 'center', flexDirection: 'row', gap: 12 }, tab: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 8, justifyContent: 'center' }, tabs: { borderWidth: 1, flexDirection: 'row', overflow: 'hidden' }, tabular: { fontVariant: ['tabular-nums'] }, titleRow: { alignItems: 'center', flexDirection: 'row', gap: 16 },
 });
