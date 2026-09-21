@@ -1,5 +1,9 @@
 # Plan Pracy: RoadRunner
 
+> **ARCHIWUM — NIE UŻYWAĆ DO PLANOWANIA.** Ten plan opisuje historyczny stan projektu.
+> Aktualna kolejność prac jest w [`development-plan.md`](./development-plan.md), a status
+> zadań w Linearze.
+
 ## Faza 0: Setup i Infrastruktura (AKTYWNA)
 - [x] Inicjalizacja projektu Rust (Cargo)
 - [x] Struktura katalogów

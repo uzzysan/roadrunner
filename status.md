@@ -1,5 +1,8 @@
 # RoadRunner - Status Projektu
 
+> **ARCHIWUM.** Ten snapshot nie odzwierciedla bieżącego statusu. Aktualny dziennik znajduje
+> się w [`docs/status-log.md`](./docs/status-log.md), a status zadań w Linearze.
+
 > Data utworzenia: 2026-03-23  
 > Aktualizacja: 2026-03-23 21:30 (deployment sekcja usunięta 2026-08-24 — patrz niżej)  
 > Aktywna faza: Faza 0 - Infrastruktura  
