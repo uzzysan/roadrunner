@@ -419,15 +419,17 @@ mod tests {
 
         let nonce = Uuid::new_v4();
         let email = format!("test_bck21_{nonce}@example.com");
+        let email_hash = hex::encode(Sha256::digest(email.as_bytes()));
         let qr_code = format!("TICKET:{nonce}:1700000000");
         let user_id: Uuid = sqlx::query_scalar(
             r#"
-            INSERT INTO users (email, password_hash, first_name, last_name, role)
-            VALUES ($1, 'test-only', 'BCK', 'TwentyOne', 'attendant')
+            INSERT INTO users (email, email_hash, password_hash, first_name, last_name, role)
+            VALUES ($1, $2, 'test-only', 'BCK', 'TwentyOne', 'attendant')
             RETURNING id
             "#,
         )
         .bind(&email)
+        .bind(&email_hash)
         .fetch_one(&pool)
         .await
         .expect("test attendant insert must succeed");
