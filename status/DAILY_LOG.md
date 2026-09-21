@@ -1,5 +1,8 @@
 # Dziennik Pracy - RoadRunner AI Team
 
+> **ARCHIWUM.** To historyczny dziennik z marca 2026. Bieżące decyzje i status są w
+> [`../docs/status-log.md`](../docs/status-log.md) oraz w Linearze.
+
 ## Data: 2026-03-25
 
 ---

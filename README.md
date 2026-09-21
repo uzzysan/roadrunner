@@ -2,13 +2,13 @@
 
 System transportowy zbudowany w Rust (Axum + PostGIS) z modułem szkolnym, GPS trackingiem, biletami QR i płatnościami Stripe.
 
-> **2026-08-24:** ten kod jest bazą, na której budowany jest projekt dalej, ale bieżąca
-> architektura i plan pracy żyją teraz w osobnym repo `RoadRunner`
-> (`docs/architecture.md`, `docs/development-plan.md`, `docs/status-log.md` — tam też pełny
-> zapis decyzji podjętych 2026-08-24: Flutter zamiast React Native na mobile, Leptos zamiast
-> Tauri na panel admina, OVH VPS + Podman zamiast Coolify/Raspberry Pi jako cel deploymentu).
-> Ten plik i pozostałe dokumenty w `docs/`/`status/` zostają jako zapis historyczny tego, co
-> faktycznie zbudowano i dlaczego — nie są już aktualizowane jako plan na przyszłość.
+> **Źródło prawdy (2026-09-21):** to repozytorium,
+> [`github.com/uzzysan/roadrunner`](https://github.com/uzzysan/roadrunner), jest jedynym
+> kanonicznym repo RoadRunner. Wdrożony Axum/SQLx + Expo MVP jest utrzymywany wyłącznie
+> w zakresie bezpieczeństwa i ciągłości działania, a architektura docelowa powstaje tutaj
+> przez migrację etapową. Szczegóły: [`docs/architecture.md`](./docs/architecture.md),
+> [`docs/development-plan.md`](./docs/development-plan.md) i
+> [`docs/adr/0001-canonical-repository-and-migration.md`](./docs/adr/0001-canonical-repository-and-migration.md).
 
 ## Stack Technologiczny
 - **Backend**: Rust + Axum
@@ -21,8 +21,12 @@ System transportowy zbudowany w Rust (Axum + PostGIS) z modułem szkolnym, GPS t
 Zarządzanie zadaniami: [Linear](https://linear.app)
 
 ## Dokumentacja
-- [Plan pracy (historyczny)](./docs/PLAN.md)
-- [Status i decyzje (2026-08-24)](./docs/GITHUB_ACTIONS_FIXES.md), [status.md](./status.md), [status/STATUS.md](./status/STATUS.md)
+- [Kontekst domeny i słownik](./CONTEXT.md)
+- [Architektura bieżąca i docelowa](./docs/architecture.md)
+- [Plan realizacji i zależności](./docs/development-plan.md)
+- [Bieżący status](./docs/status-log.md)
+- [Design language](./docs/design-language.md)
+- [Dokumenty historyczne](./docs/PLAN.md), [status.md](./status.md), [status/STATUS.md](./status/STATUS.md)
 
 ## Uruchomienie
 ```bash

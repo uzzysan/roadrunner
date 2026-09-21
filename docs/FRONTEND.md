@@ -1,5 +1,9 @@
 # RoadRunner Frontend
 
+> **ARCHIWUM — NIE UŻYWAĆ JAKO SPECYFIKACJI.** React Native/Expo pozostaje klientem
+> wdrożonym i referencją UX; targetem są Flutter i Leptos. Aktualne decyzje opisują
+> [`architecture.md`](./architecture.md) i [`design-language.md`](./design-language.md).
+
 ## Logo
 -  - dla jasnego motywu
 -  - dla ciemnego motywu

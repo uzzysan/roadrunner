@@ -1,5 +1,8 @@
 # Status Projektu RoadRunner
 
+> **ARCHIWUM.** Ten snapshot nie jest źródłem bieżącego statusu. Zobacz
+> [`../docs/status-log.md`](../docs/status-log.md) oraz Linear.
+
 **Data aktualizacji**: 2026-03-25  
 **Wersja**: 0.1.0-alpha  
 **Zespół**: 6 agentów AI  
