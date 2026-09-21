@@ -38,7 +38,9 @@ The target is a Cargo workspace with explicit capability boundaries:
 
 The carrier is the tenant boundary. Every tenant-owned row has a non-null `carrier_id`.
 Each request opens a transaction, sets the verified carrier context and relies on both RBAC
-and PostgreSQL RLS. System-administration access is explicit and audited.
+and PostgreSQL RLS. System-administration access is explicit and audited. The global/tenant
+data split, transaction contract and database-role requirements are defined in
+`docs/adr/0002-carrier-tenancy-and-row-level-security.md`.
 
 The target administration client is Leptos. The target mobile client is Flutter with a small,
 audited `flutter_rust_bridge` surface for security-sensitive shared logic. Expo remains a UX

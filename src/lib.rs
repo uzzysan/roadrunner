@@ -5,5 +5,6 @@ pub mod handlers;
 pub mod models;
 pub mod payments;
 pub mod state;
+pub mod tenant;
 pub mod tickets;
 pub mod websocket;

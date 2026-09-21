@@ -1,3 +1,4 @@
+pub mod carrier;
 pub mod driver;
 pub mod gps;
 pub mod incident;
