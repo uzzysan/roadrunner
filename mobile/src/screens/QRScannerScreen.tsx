@@ -1,250 +1,321 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Dimensions,
-} from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import axios from 'axios';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { apiClient } from '../api/client';
+import { AppText } from '../components/AppText';
+import { Button } from '../components/Button';
+import { Card } from '../components/Card';
+import { EmptyState } from '../components/EmptyState';
+import { ErrorState } from '../components/ErrorState';
+import { IconButton } from '../components/IconButton';
+import { Screen } from '../components/Screen';
+import { StatusBadge } from '../components/StatusBadge';
+import { useTheme } from '../hooks/useTheme';
+import type { RootStackParamList } from '../types';
 
-const { width } = Dimensions.get('window');
-const SCANNER_SIZE = width * 0.7;
+type QRScannerNavigationProp = NativeStackNavigationProp<RootStackParamList, 'QRScanner'>;
+
+interface ValidationTicket {
+  id?: string;
+  ticket_type?: string;
+  price?: number;
+  currency?: string;
+  valid_until?: string;
+}
+
+interface ValidationPayload {
+  valid?: boolean;
+  ticket?: ValidationTicket | null;
+}
+
+export type ScannerResult =
+  | { kind: 'valid'; ticket?: ValidationTicket | null }
+  | { kind: 'invalid'; ticket?: ValidationTicket | null }
+  | { kind: 'unverified'; reason: 'offline' | 'server' };
+
+export function classifyValidationPayload(payload: ValidationPayload): ScannerResult {
+  if (payload?.valid === true) return { kind: 'valid', ticket: payload.ticket };
+  if (payload?.valid === false) return { kind: 'invalid', ticket: payload.ticket };
+  return { kind: 'unverified', reason: 'server' };
+}
+
+export function classifyValidationFailure(error: unknown): ScannerResult {
+  return {
+    kind: 'unverified',
+    reason: axios.isAxiosError(error) && !error.response ? 'offline' : 'server',
+  };
+}
 
 export function QRScannerScreen() {
-  const navigation = useNavigation();
+  const { t, i18n } = useTranslation();
+  const navigation = useNavigation<QRScannerNavigationProp>();
   const [permission, requestPermission] = useCameraPermissions();
+  const { colors, theme } = useTheme();
+  const { width } = useWindowDimensions();
   const [scanned, setScanned] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [permissionError, setPermissionError] = useState(false);
+  const [result, setResult] = useState<ScannerResult>();
+  const frameSize = Math.max(240, Math.min(width - theme.space.xxl, 360));
 
-  useEffect(() => {
-    if (!permission?.granted) {
-      requestPermission();
+  const close = () => {
+    if (navigation.canGoBack()) navigation.goBack();
+  };
+
+  const askForPermission = async () => {
+    setPermissionError(false);
+    try {
+      await requestPermission();
+    } catch {
+      setPermissionError(true);
     }
-  }, [permission]);
+  };
 
-  const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+  const handleBarCodeScanned = async ({ data }: { type: string; data: string }) => {
     if (scanned || isValidating) return;
-
     setScanned(true);
     setIsValidating(true);
-
     try {
-      // Validate ticket via API
-      const response = await apiClient.post('/tickets/validate', {
+      const response = await apiClient.post<ValidationPayload>('/tickets/validate', {
         qr_code: data,
-        // TODO: Add vehicle_id and location when available
       });
-
-      const result = response.data;
-
-      if (result.valid) {
-        Alert.alert(
-          '✅ Bilet ważny',
-          `Bilet został pomyślnie zweryfikowany.\n\nTyp: ${result.ticket?.ticket_type}\nCena: ${result.ticket?.price} ${result.ticket?.currency}`,
-          [
-            {
-              text: 'Skanuj kolejny',
-              onPress: () => setScanned(false),
-            },
-            {
-              text: 'Zamknij',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          '❌ Bilet nieważny',
-          result.message || 'Ten bilet nie może być użyty.',
-          [
-            {
-              text: 'Spróbuj ponownie',
-              onPress: () => setScanned(false),
-            },
-            {
-              text: 'Zamknij',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
-      }
-    } catch (error: any) {
-      Alert.alert(
-        'Błąd',
-        error.response?.data?.error || 'Nie udało się zweryfikować biletu',
-        [
-          {
-            text: 'Spróbuj ponownie',
-            onPress: () => setScanned(false),
-          },
-        ]
-      );
+      setResult(classifyValidationPayload(response.data));
+    } catch (error: unknown) {
+      setResult(classifyValidationFailure(error));
     } finally {
       setIsValidating(false);
     }
   };
 
-  if (!permission?.granted) {
+  const scanAgain = () => {
+    setResult(undefined);
+    setScanned(false);
+  };
+
+  const resultTitle = result?.kind === 'valid'
+    ? t('scanner.validTitle')
+    : result?.kind === 'invalid'
+      ? t('scanner.invalidTitle')
+      : t('scanner.unverifiedTitle');
+  const resultDescription = result?.kind === 'valid'
+    ? t('scanner.validDescription')
+    : result?.kind === 'invalid'
+      ? t('scanner.invalidDescription')
+      : result?.reason === 'offline'
+        ? t('scanner.unverifiedOfflineDescription')
+        : t('scanner.unverifiedServerDescription');
+  const resultTone = result?.kind === 'valid'
+    ? 'success'
+    : result?.kind === 'invalid'
+      ? 'danger'
+      : 'offline';
+  const formatPrice = (ticket: ValidationTicket) => {
+    if (typeof ticket.price !== 'number' || !ticket.currency) return undefined;
+    try {
+      return new Intl.NumberFormat(i18n.language, {
+        style: 'currency',
+        currency: ticket.currency,
+      }).format(ticket.price);
+    } catch {
+      return `${ticket.price} ${ticket.currency}`;
+    }
+  };
+  const formatValidity = (value?: string) => {
+    if (!value) return undefined;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return new Intl.DateTimeFormat(i18n.language, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  };
+
+  if (!permission) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.message}>Potrzebny dostęp do kamery</Text>
-        <TouchableOpacity style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Udziel dostępu</Text>
-        </TouchableOpacity>
-      </View>
+      <Screen contentContainerStyle={[styles.center, { gap: theme.space.md }]}>
+        <ActivityIndicator accessibilityLabel={t('scanner.permissionChecking')} color={colors.primary} />
+        <AppText tone="secondary">{t('scanner.permissionChecking')}</AppText>
+      </Screen>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <Screen
+        contentContainerStyle={[styles.permission, { gap: theme.space.xl }]}
+      >
+        <EmptyState
+          description={permission.canAskAgain
+            ? t('scanner.permissionDescription')
+            : t('scanner.permissionSettingsDescription')}
+          icon="camera-outline"
+          title={t('scanner.permissionTitle')}
+        />
+        {permissionError ? (
+          <ErrorState
+            description={t('scanner.permissionRequestError')}
+            onRetry={() => void askForPermission()}
+          />
+        ) : null}
+        <Button
+          fullWidth
+          icon={permission.canAskAgain ? 'camera-outline' : 'settings-outline'}
+          label={permission.canAskAgain
+            ? t('scanner.grantPermission')
+            : t('scanner.openSettings')}
+          onPress={permission.canAskAgain
+            ? () => void askForPermission()
+            : () => void Linking.openSettings()}
+          safety
+        />
+        {navigation.canGoBack() ? (
+          <Button
+            fullWidth
+            label={t('common.close')}
+            onPress={close}
+            safety
+            variant="secondary"
+          />
+        ) : null}
+      </Screen>
+    );
+  }
+
+  if (result) {
+    const ticket = result.kind === 'unverified' ? undefined : result.ticket;
+    const price = ticket ? formatPrice(ticket) : undefined;
+    const validity = formatValidity(ticket?.valid_until);
+    return (
+      <Screen
+        scroll
+        contentContainerStyle={[styles.result, { gap: theme.space.xl }]}
+      >
+        <Card
+          accessibilityLiveRegion="assertive"
+          elevated
+          style={{ gap: theme.space.lg }}
+        >
+          <StatusBadge label={resultTitle} tone={resultTone} />
+          <AppText accessibilityRole="header" variant="h1">{resultTitle}</AppText>
+          <AppText tone="secondary">{resultDescription}</AppText>
+          {ticket ? (
+            <View style={{ gap: theme.space.xs }}>
+              {ticket.ticket_type ? (
+                <AppText>{t('scanner.ticketType', {
+                  type: t(`tickets.type.${ticket.ticket_type}`, {
+                    defaultValue: t('tickets.type.unknown'),
+                  }),
+                })}</AppText>
+              ) : null}
+              {ticket.id ? <AppText>{t('tickets.identifier', { id: ticket.id })}</AppText> : null}
+              {validity ? (
+                <AppText>{t('tickets.validUntil')}: {validity}</AppText>
+              ) : null}
+              {price ? <AppText variant="bodyStrong">{price}</AppText> : null}
+            </View>
+          ) : null}
+          <Button
+            fullWidth
+            icon="scan-outline"
+            label={t('scanner.scanAgain')}
+            onPress={scanAgain}
+            safety
+          />
+          {navigation.canGoBack() ? (
+            <Button
+              fullWidth
+              label={t('common.close')}
+              onPress={close}
+              safety
+              variant="secondary"
+            />
+          ) : null}
+        </Card>
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.cameraScreen, { backgroundColor: colors.inverse }]}>
       <CameraView
-        style={styles.camera}
+        accessible={false}
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        enableTorch={torchEnabled}
         facing="back"
-        barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
-        }}
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        style={styles.camera}
       >
-        <View style={styles.overlay}>
-          <View style={styles.scannerFrame}>
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
+        <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <View
+            accessibilityLabel={t('scanner.frameLabel')}
+            accessibilityRole="image"
+            style={[
+              styles.frame,
+              {
+                borderColor: colors.primary,
+                borderRadius: theme.radius.lg,
+                height: frameSize,
+                width: frameSize,
+              },
+            ]}
+          />
+          <View style={[styles.instructions, { gap: theme.space.md }]}>
+            {isValidating ? (
+              <ActivityIndicator accessibilityLabel={t('scanner.validating')} color={colors.onInverse} />
+            ) : null}
+            <AppText style={styles.centerText} tone="inverse" variant="h3">
+              {isValidating ? t('scanner.validating') : t('scanner.instructions')}
+            </AppText>
           </View>
-
-          <Text style={styles.instructions}>
-            {isValidating 
-              ? 'Weryfikowanie biletu...' 
-              : 'Zeskanuj kod QR biletu'
-            }
-          </Text>
-
-          {scanned && (
-            <TouchableOpacity
-              style={styles.scanAgainButton}
-              onPress={() => setScanned(false)}
-            >
-              <Text style={styles.scanAgainText}>Skanuj ponownie</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </CameraView>
-
-      <TouchableOpacity
-        style={styles.closeButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.closeButtonText}>✕</Text>
-      </TouchableOpacity>
+      <View style={[styles.topActions, {
+        gap: theme.space.sm,
+        right: theme.space.lg,
+        top: theme.space.lg,
+      }]}>
+        <IconButton
+          accessibilityLabel={torchEnabled ? t('scanner.turnOffTorch') : t('scanner.turnOnTorch')}
+          color={colors.text}
+          icon={torchEnabled ? 'flash' : 'flash-outline'}
+          onPress={() => setTorchEnabled((enabled) => !enabled)}
+          safety
+          selected={torchEnabled}
+          style={{ backgroundColor: colors.surfaceRaised }}
+        />
+        <IconButton
+          accessibilityLabel={t('common.close')}
+          color={colors.text}
+          icon="close"
+          onPress={close}
+          safety
+          style={{ backgroundColor: colors.surfaceRaised }}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  camera: {
-    flex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scannerFrame: {
-    width: SCANNER_SIZE,
-    height: SCANNER_SIZE,
-    position: 'relative',
-  },
-  corner: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderColor: '#2563EB',
-    borderWidth: 4,
-  },
-  topLeft: {
-    top: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-  },
-  topRight: {
-    top: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-  },
-  bottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-  },
-  bottomRight: {
-    bottom: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-  },
-  instructions: {
-    color: '#fff',
-    fontSize: 18,
-    marginTop: 32,
-    textAlign: 'center',
-  },
-  scanAgainButton: {
-    marginTop: 24,
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 8,
-  },
-  scanAgainText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    width: 44,
-    height: 44,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  message: {
-    color: '#fff',
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  button: {
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignSelf: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  camera: { flex: 1 },
+  cameraScreen: { flex: 1 },
+  center: { alignItems: 'center', justifyContent: 'center' },
+  centerText: { textAlign: 'center' },
+  frame: { borderWidth: 4 },
+  instructions: { alignItems: 'center', maxWidth: '85%' },
+  overlay: { alignItems: 'center', flex: 1, justifyContent: 'center' },
+  permission: { justifyContent: 'center' },
+  result: { justifyContent: 'center' },
+  topActions: { flexDirection: 'row', position: 'absolute' },
 });

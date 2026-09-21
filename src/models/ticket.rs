@@ -121,9 +121,20 @@ pub struct GpsLocation {
 }
 
 /// Response z walidacji
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidationResult {
+    Valid,
+    Used,
+    Expired,
+    InvalidSignature,
+    WrongTenant,
+}
+
 #[derive(Debug, Serialize)]
 pub struct ValidationResponse {
     pub valid: bool,
+    pub code: ValidationResult,
     pub message: String,
     pub ticket: Option<TicketResponse>,
 }

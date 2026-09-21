@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="rr-app-title rr-app-desc">
+  <title id="rr-app-title">RoadRunner</title>
+  <desc id="rr-app-desc">Miętowa trasa w kształcie R na granatowym tle.</desc>
+  <path fill="#102C36" d="M0 0h1024v1024H0z"/><g transform="translate(192 192) scale(10)"><g fill="none" stroke="#5DE0CB" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><path d="M17 49V15h17c18 0 18 21 0 21H17m16 0 16 13"/></g></g>
+</svg>

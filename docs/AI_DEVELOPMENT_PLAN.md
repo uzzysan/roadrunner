@@ -1,5 +1,8 @@
 # RoadRunner — Szczegółowy Plan Rozwoju (dla agentów AI)
 
+> **ARCHIWUM — NIE UŻYWAĆ DO PLANOWANIA.** Dokument zachowano jako zapis historyczny.
+> Aktualny plan: [`development-plan.md`](./development-plan.md).
+
 > **Projekt**: RoadRunner — System Transportu Zbiorowego i Szkolnego
 > **Język**: Rust (Axum 0.7 + SQLx 0.7 + Tokio)
 > **Baza danych**: PostgreSQL 16 + PostGIS

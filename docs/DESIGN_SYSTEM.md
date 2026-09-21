@@ -1,5 +1,7 @@
 # RoadRunner Design System
 
+> Historical v1. Replaced by [Design System v2 — Connected Route](DESIGN_SYSTEM_V2.md). All new and modified UI must follow v2 and `design/tokens.json`; the values below are retained only as migration context.
+
 ## Paleta Kolorów
 
 ### Light Theme

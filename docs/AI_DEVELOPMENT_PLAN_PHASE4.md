@@ -1,5 +1,8 @@
 # RoadRunner - Plan Rozwoju Fazy 4: Zarządzanie Flotą
 
+> **ARCHIWUM — NIE UŻYWAĆ DO PLANOWANIA.** Zakres docelowy i zależności są utrzymywane
+> w [`development-plan.md`](./development-plan.md) oraz w ticketach Linear.
+
 ## 📋 Podsumowanie Fazy 4
 
 Faza 4 wprowadza kompleksowy system zarządzania flotą pojazdów, kierowcami oraz zaawansowane funkcje dla transportu szkolnego.
