@@ -32,8 +32,8 @@ services:
     env_file:
       - ../.env.production
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-role-setup:
+        condition: service_completed_successfully
     # No published host port on purpose — only Caddy is reachable from outside this box.
 
   postgres:
@@ -52,6 +52,19 @@ services:
       timeout: 5s
       retries: 10
     # No published host port on purpose — the database is reachable only from the api container.
+
+  db-role-setup:
+    image: postgis/postgis:16-3.4
+    container_name: roadrunner-db-role-setup
+    env_file:
+      - ../.env.production
+    volumes:
+      - ./postgres/configure-app-role.sh:/usr/local/bin/configure-app-role:ro
+    command: ["/bin/sh", "/usr/local/bin/configure-app-role"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
 volumes:
   roadrunner_pgdata:

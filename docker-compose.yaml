@@ -8,14 +8,17 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      - DATABASE_URL=postgres://${DB_USER:-roadrunner}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-roadrunner}
+      - DATABASE_URL=postgres://${DB_APP_USER:-roadrunner_runtime}:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME:-roadrunner}
+      - MIGRATION_DATABASE_URL=postgres://${DB_USER:-roadrunner}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-roadrunner}
+      - DEFAULT_CARRIER_ID=${DEFAULT_CARRIER_ID:-00000000-0000-4000-8000-000000000001}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRATION=${JWT_EXPIRATION:-86400}
       - PORT=${PORT:-3000}
       - HOST=0.0.0.0
       - RUST_LOG=${RUST_LOG:-info}
     depends_on:
-      - postgres
+      db-role-setup:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
@@ -40,6 +43,22 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+  db-role-setup:
+    image: postgis/postgis:16-3.4
+    environment:
+      - DB_USER=${DB_USER:-roadrunner}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-roadrunner}
+      - DB_APP_USER=${DB_APP_USER:-roadrunner_runtime}
+      - DB_APP_PASSWORD=${DB_APP_PASSWORD}
+    volumes:
+      - ./infra/postgres/configure-app-role.sh:/usr/local/bin/configure-app-role:ro
+    command: ["/bin/sh", "/usr/local/bin/configure-app-role"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
 volumes:
   postgres_data:

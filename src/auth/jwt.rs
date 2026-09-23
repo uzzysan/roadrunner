@@ -5,9 +5,10 @@ use uuid::Uuid;
 
 use crate::{config::Config, models::user::UserRole};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: Uuid,
+    pub carrier_id: Uuid,
     pub email: String,
     pub role: UserRole,
     pub exp: i64,
@@ -33,6 +34,7 @@ pub struct TokenPair {
 /// * `TokenPair` - Para tokenów (access + refresh)
 pub fn generate_token_pair(
     user_id: Uuid,
+    carrier_id: Uuid,
     email: String,
     role: UserRole,
     config: &Config,
@@ -42,6 +44,7 @@ pub fn generate_token_pair(
 
     let claims = Claims {
         sub: user_id,
+        carrier_id,
         email: email.clone(),
         role: role.clone(),
         exp: exp.timestamp(),
@@ -57,6 +60,7 @@ pub fn generate_token_pair(
     let refresh_exp = now + Duration::days(7);
     let refresh_claims = Claims {
         sub: user_id,
+        carrier_id,
         email,
         role,
         exp: refresh_exp.timestamp(),
@@ -103,5 +107,11 @@ pub fn refresh_access_token(
     let claims = decode_token(refresh_token, &config.jwt_secret)?;
 
     // Generuj nową parę tokenów
-    generate_token_pair(claims.sub, claims.email, claims.role, config)
+    generate_token_pair(
+        claims.sub,
+        claims.carrier_id,
+        claims.email,
+        claims.role,
+        config,
+    )
 }

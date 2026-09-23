@@ -67,6 +67,7 @@ if [ ! -f .env.production ]; then
     fi
   fi
   DB_PASSWORD="$(openssl rand -hex 24)"
+  DB_APP_PASSWORD="$(openssl rand -hex 24)"
   JWT_SECRET="$(openssl rand -hex 32)"
   cat > .env.production <<EOF
 DOMAIN=${DOMAIN}
@@ -74,7 +75,11 @@ ACME_EMAIL=${ACME_EMAIL}
 DB_USER=roadrunner
 DB_PASSWORD=${DB_PASSWORD}
 DB_NAME=roadrunner
-DATABASE_URL=postgres://roadrunner:${DB_PASSWORD}@postgres:5432/roadrunner
+DB_APP_USER=roadrunner_runtime
+DB_APP_PASSWORD=${DB_APP_PASSWORD}
+DATABASE_URL=postgres://roadrunner_runtime:${DB_APP_PASSWORD}@postgres:5432/roadrunner
+MIGRATION_DATABASE_URL=postgres://roadrunner:${DB_PASSWORD}@postgres:5432/roadrunner
+DEFAULT_CARRIER_ID=00000000-0000-4000-8000-000000000001
 JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRATION=86400
 PORT=3000
@@ -86,6 +91,30 @@ EOF
   echo "    file up somewhere safe; losing it means losing access to the database)."
 else
   echo "==> .env.production already exists — leaving it as-is"
+  if ! grep -q '^DB_APP_PASSWORD=' .env.production; then
+    echo "==> Upgrading database credentials for an RLS-enforced runtime role"
+    DB_USER_VALUE="$(grep -m1 '^DB_USER=' .env.production | cut -d= -f2-)"
+    DB_PASSWORD_VALUE="$(grep -m1 '^DB_PASSWORD=' .env.production | cut -d= -f2-)"
+    DB_NAME_VALUE="$(grep -m1 '^DB_NAME=' .env.production | cut -d= -f2-)"
+    DB_USER_VALUE="${DB_USER_VALUE:-roadrunner}"
+    DB_NAME_VALUE="${DB_NAME_VALUE:-roadrunner}"
+    DB_APP_PASSWORD="$(openssl rand -hex 24)"
+    sed -i \
+      -e '/^DB_APP_USER=/d' \
+      -e '/^DB_APP_PASSWORD=/d' \
+      -e '/^DATABASE_URL=/d' \
+      -e '/^MIGRATION_DATABASE_URL=/d' \
+      -e '/^DEFAULT_CARRIER_ID=/d' \
+      .env.production
+    cat >> .env.production <<EOF
+DB_APP_USER=roadrunner_runtime
+DB_APP_PASSWORD=${DB_APP_PASSWORD}
+DATABASE_URL=postgres://roadrunner_runtime:${DB_APP_PASSWORD}@postgres:5432/${DB_NAME_VALUE}
+MIGRATION_DATABASE_URL=postgres://${DB_USER_VALUE}:${DB_PASSWORD_VALUE}@postgres:5432/${DB_NAME_VALUE}
+DEFAULT_CARRIER_ID=00000000-0000-4000-8000-000000000001
+EOF
+    chmod 600 .env.production
+  fi
 fi
 
 # --- 4. Pull ghcr.io image ----------------------------------------------------------------

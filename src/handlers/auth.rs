@@ -1,4 +1,4 @@
-use axum::{extract::State, Json};
+use axum::{extract::State, Extension, Json};
 use validator::Validate;
 
 use crate::{
@@ -9,6 +9,7 @@ use crate::{
     errors::{AppError, AppResult},
     models::user::{CreateUserRequest, LoginRequest, UserResponse, UserRole},
     state::AppState,
+    tenant::{can_access_carrier, TenantIdentity},
 };
 
 #[derive(Debug, serde::Serialize)]
@@ -21,15 +22,17 @@ pub struct AuthResponse {
 
 pub async fn register(
     State(state): State<AppState>,
+    Extension(tenant): Extension<TenantIdentity>,
     Json(req): Json<CreateUserRequest>,
 ) -> AppResult<Json<AuthResponse>> {
     // Walidacja danych wejściowych
     req.validate()?;
 
     // Sprawdź czy email istnieje
+    let mut tx = state.db.begin().await?;
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE email = $1")
         .bind(&req.email)
-        .fetch_one(&state.db)
+        .fetch_one(&mut *tx)
         .await?;
 
     if count > 0 {
@@ -56,12 +59,20 @@ pub async fn register(
         req.phone,
         UserRole::Passenger as UserRole,
     )
-    .fetch_one(&state.db)
+    .fetch_one(&mut *tx)
     .await?;
+
+    sqlx::query("INSERT INTO carrier_memberships (carrier_id, user_id) VALUES ($1, $2)")
+        .bind(tenant.carrier_id)
+        .bind(user.id)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
 
     // Generuj tokeny JWT
     let token_pair = generate_token_pair(
         user.id,
+        tenant.carrier_id,
         user.email.clone(),
         user.role.clone(),
         &state.config,
@@ -78,6 +89,7 @@ pub async fn register(
 
 pub async fn login(
     State(state): State<AppState>,
+    Extension(tenant): Extension<TenantIdentity>,
     Json(req): Json<LoginRequest>,
 ) -> AppResult<Json<AuthResponse>> {
     // Walidacja danych wejściowych
@@ -107,6 +119,10 @@ pub async fn login(
         return Err(AppError::Unauthorized("Invalid credentials".to_string()));
     }
 
+    if !can_access_carrier(&state.db, user.id, tenant.carrier_id).await? {
+        return Err(AppError::Unauthorized("Invalid credentials".to_string()));
+    }
+
     // TODO: Sprawdź MFA jeśli włączone
     if user.mfa_enabled {
         // MFA flow - zwróć tymczasowy token lub wymagaj kodu MFA
@@ -116,6 +132,7 @@ pub async fn login(
     // Generuj tokeny JWT
     let token_pair = generate_token_pair(
         user.id,
+        tenant.carrier_id,
         user.email.clone(),
         user.role.clone(),
         &state.config,
@@ -303,6 +320,9 @@ pub async fn verify_mfa_login(
     // Dekoduj tymczasowy token (zawiera user_id)
     let claims = crate::auth::jwt::decode_token(&req.temp_token, &state.config.jwt_secret)
         .map_err(|_| AppError::Unauthorized("Invalid temp token".to_string()))?;
+    if !can_access_carrier(&state.db, claims.sub, claims.carrier_id).await? {
+        return Err(AppError::Unauthorized("Invalid temp token".to_string()));
+    }
 
     // Pobierz użytkownika
     let user = sqlx::query_as!(
@@ -339,6 +359,7 @@ pub async fn verify_mfa_login(
     // Generuj pełne tokeny
     let token_pair = generate_token_pair(
         user.id,
+        claims.carrier_id,
         user.email.clone(),
         user.role.clone(),
         &state.config,
@@ -459,6 +480,9 @@ pub async fn refresh_token(
     // Weryfikuj refresh token
     let claims = crate::auth::jwt::decode_token(&req.refresh_token, &state.config.jwt_secret)
         .map_err(|_| AppError::Unauthorized("Invalid refresh token".to_string()))?;
+    if !can_access_carrier(&state.db, claims.sub, claims.carrier_id).await? {
+        return Err(AppError::Unauthorized("Invalid refresh token".to_string()));
+    }
 
     // Sprawdź czy użytkownik istnieje
     let user = sqlx::query_as!(
@@ -478,6 +502,7 @@ pub async fn refresh_token(
     // Generuj nową parę tokenów
     let token_pair = generate_token_pair(
         user.id,
+        claims.carrier_id,
         user.email.clone(),
         user.role.clone(),
         &state.config,

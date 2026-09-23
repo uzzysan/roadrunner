@@ -1,9 +1,12 @@
 use dotenvy::dotenv;
 use std::env;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct Config {
     pub database_url: String,
+    pub migration_database_url: Option<String>,
+    pub default_carrier_id: Uuid,
     pub jwt_secret: String,
     pub jwt_expiration: i64,
     pub port: u16,
@@ -36,6 +39,11 @@ impl Config {
 
         Self {
             database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
+            migration_database_url: optional_env("MIGRATION_DATABASE_URL"),
+            default_carrier_id: env::var("DEFAULT_CARRIER_ID")
+                .unwrap_or_else(|_| "00000000-0000-4000-8000-000000000001".to_string())
+                .parse()
+                .expect("DEFAULT_CARRIER_ID must be a UUID"),
             jwt_secret: env::var("JWT_SECRET")
                 .unwrap_or_else(|_| "default-secret-change-in-production".to_string()),
             jwt_expiration: env::var("JWT_EXPIRATION")
