@@ -129,13 +129,13 @@ impl From<PgPool> for TenantPool {
 impl<'pool> Executor<'pool> for &'pool TenantPool {
     type Database = Postgres;
 
-    fn fetch_many<'executor, 'query: 'executor, Query: 'query>(
+    fn fetch_many<'executor, 'query: 'executor, Query>(
         self,
         query: Query,
     ) -> BoxStream<'executor, Result<Either<PgQueryResult, PgRow>, sqlx::Error>>
     where
         'pool: 'executor,
-        Query: Execute<'query, Postgres>,
+        Query: 'query + Execute<'query, Postgres>,
     {
         Box::pin(try_stream! {
             let mut tx = self.begin().await?;
@@ -148,13 +148,13 @@ impl<'pool> Executor<'pool> for &'pool TenantPool {
         })
     }
 
-    fn fetch_optional<'executor, 'query: 'executor, Query: 'query>(
+    fn fetch_optional<'executor, 'query: 'executor, Query>(
         self,
         query: Query,
     ) -> BoxFuture<'executor, Result<Option<PgRow>, sqlx::Error>>
     where
         'pool: 'executor,
-        Query: Execute<'query, Postgres>,
+        Query: 'query + Execute<'query, Postgres>,
     {
         Box::pin(async move {
             let mut tx = self.begin().await?;

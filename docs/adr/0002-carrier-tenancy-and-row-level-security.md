@@ -20,9 +20,12 @@ ticketing, payment, incident and school-safety records are tenant-owned and carr
 `carrier_id`.
 
 Tenant access is installed with `SET LOCAL`-equivalent PostgreSQL settings inside a database
-transaction. Application code must derive either `Carrier(carrier_id)` or `SystemAdmin` from
-an authenticated session and call `TenantContext` before executing tenant queries. Context is
-transaction-local so a pooled connection cannot retain the previous request's carrier.
+transaction. HTTP middleware verifies the selected active carrier and, for authenticated calls,
+the signed JWT carrier plus current membership. `TenantPool` refuses unscoped SQL and wraps each
+operation in a transaction that applies `TenantContext`; explicit multi-statement work uses the
+same context on one transaction. Background paths such as the signed Stripe webhook must select
+`SystemAdmin` explicitly. Context is transaction-local, so errors, cancellation and pooled
+connection reuse cannot retain the previous request's carrier.
 
 Each tenant table enables and forces RLS with distinct SELECT, INSERT, UPDATE and DELETE
 policies. Missing context matches no tenant row. Carrier context can only read and mutate rows
@@ -32,7 +35,18 @@ policies.
 
 The production application database role must be non-superuser and must not have
 `BYPASSRLS`; PostgreSQL superusers bypass RLS even when it is forced. Schema migrations may
-continue to run with a separate privileged owner role.
+continue to run with a separate privileged owner role. Deployment creates a dedicated runtime
+login that inherits the `roadrunner_app` grants, while startup rejects an unsafe runtime role.
+
+Relationships between tenant-owned tables use composite foreign keys from
+`(carrier_id, foreign_id)` to `(carrier_id, id)`. RLS controls row visibility and mutation;
+these constraints separately prevent a valid row for one carrier from referencing or cascading
+into another carrier's row.
+
+WebSocket connections capture the verified request carrier before upgrade. Driver publishing
+requires a signed Driver identity and an active database assignment to the vehicle; route and
+vehicle subscriptions are checked through the same tenant transaction. GPS updates are persisted
+under RLS and broadcast through a carrier-specific channel.
 
 ## Migration
 
@@ -45,9 +59,9 @@ carrier.
 ## Consequences
 
 - Database policy remains the final isolation boundary if an endpoint omits a tenant filter.
-- Every tenant-aware request must use a transaction, including read-only requests.
+- Every tenant-aware database operation uses a transaction, including read-only operations.
 - Login identity lookup stays global; authorization to tenant data comes from membership and
   the verified request context.
-- The JWT/RBAC ticket must carry the verified carrier membership into `TenantContext` rather
-  than accepting carrier identifiers from request payloads or headers.
+- JWTs carry the carrier selected at authentication time; later RBAC work may enrich roles but
+  must preserve the membership re-check and must not trust carrier identifiers from payloads.
 - Integration tests must exercise RLS through a non-superuser, non-`BYPASSRLS` database role.

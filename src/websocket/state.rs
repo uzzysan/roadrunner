@@ -145,3 +145,52 @@ impl Default for WsState {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{GpsBroadcast, WsState};
+    use tokio::sync::broadcast::error::TryRecvError;
+    use uuid::Uuid;
+
+    fn update(carrier_id: Uuid) -> GpsBroadcast {
+        GpsBroadcast {
+            carrier_id,
+            vehicle_id: Uuid::new_v4(),
+            latitude: 52.2297,
+            longitude: 21.0122,
+            speed_kmh: Some(35.0),
+            heading: Some(90),
+            route_id: None,
+            next_stop: None,
+            next_stop_eta: None,
+            timestamp: chrono::Utc::now(),
+        }
+    }
+
+    #[tokio::test]
+    async fn gps_channels_and_clients_are_carrier_scoped() {
+        let state = WsState::new();
+        let carrier_a = Uuid::new_v4();
+        let carrier_b = Uuid::new_v4();
+        let user_a = Uuid::new_v4();
+
+        let client_id = state.add_client(carrier_a, Some(user_a)).await;
+        let client = state.client(&client_id).await.expect("client exists");
+        assert_eq!(client.carrier_id, carrier_a);
+        assert_eq!(client.user_id, Some(user_a));
+
+        let mut receiver_a = state.subscribe_gps(carrier_a).await;
+        let mut receiver_b = state.subscribe_gps(carrier_b).await;
+        let message = update(carrier_a);
+        state
+            .get_gps_sender(carrier_a)
+            .await
+            .send(message.clone())
+            .expect("carrier A has a receiver");
+
+        let received = receiver_a.recv().await.expect("carrier A receives update");
+        assert_eq!(received.carrier_id, carrier_a);
+        assert_eq!(received.vehicle_id, message.vehicle_id);
+        assert!(matches!(receiver_b.try_recv(), Err(TryRecvError::Empty)));
+    }
+}

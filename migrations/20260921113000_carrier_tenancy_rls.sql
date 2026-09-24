@@ -100,6 +100,9 @@ AS $$
     )
 $$;
 
+REVOKE ALL ON FUNCTION app.can_access_carrier(UUID, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION app.is_active_carrier(UUID) FROM PUBLIC;
+
 -- Existing single-tenant data belongs to the first seeded carrier. New rows
 -- inherit the transaction-local carrier context and fail closed without one.
 DO $$

@@ -1,4 +1,4 @@
-use roadrunner::tenant::TenantContext;
+use roadrunner::tenant::{scope_request_context, TenantContext, TenantPool};
 use sqlx::{postgres::PgPoolOptions, PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
@@ -287,6 +287,55 @@ async fn carrier_rls_isolates_all_crud_and_allows_system_admin() {
         .await
         .expect("carrier B insert must commit");
 
+    let stop_a = Uuid::new_v4();
+    let stop_b = Uuid::new_v4();
+    let mut tenant_a = scoped_transaction(&pool, TenantContext::carrier(CARRIER_A)).await;
+    sqlx::query(
+        "INSERT INTO stops (id, name, location) \
+         VALUES ($1, 'Carrier A stop', ST_GeogFromText('SRID=4326;POINT(21 52)'))",
+    )
+    .bind(stop_a)
+    .execute(&mut *tenant_a)
+    .await
+    .expect("carrier A stop must be inserted");
+    tenant_a.commit().await.expect("carrier A stop must commit");
+
+    let mut tenant_b = scoped_transaction(&pool, TenantContext::carrier(CARRIER_B)).await;
+    sqlx::query(
+        "INSERT INTO stops (id, name, location) \
+         VALUES ($1, 'Carrier B stop', ST_GeogFromText('SRID=4326;POINT(21.1 52.1)'))",
+    )
+    .bind(stop_b)
+    .execute(&mut *tenant_b)
+    .await
+    .expect("carrier B stop must be inserted");
+    sqlx::query("INSERT INTO route_stops (route_id, stop_id, stop_order) VALUES ($1, $2, 1)")
+        .bind(route_b)
+        .bind(stop_b)
+        .execute(&mut *tenant_b)
+        .await
+        .expect("same-carrier relationship must be accepted");
+    tenant_b
+        .commit()
+        .await
+        .expect("same-carrier relationship must commit");
+
+    let mut cross_carrier = scoped_transaction(&pool, TenantContext::carrier(CARRIER_B)).await;
+    let cross_carrier_result =
+        sqlx::query("INSERT INTO route_stops (route_id, stop_id, stop_order) VALUES ($1, $2, 2)")
+            .bind(route_b)
+            .bind(stop_a)
+            .execute(&mut *cross_carrier)
+            .await;
+    assert!(
+        cross_carrier_result.is_err(),
+        "composite foreign keys must reject cross-carrier relationships"
+    );
+    cross_carrier
+        .rollback()
+        .await
+        .expect("rejected cross-carrier relationship must roll back");
+
     let mut no_context = pool
         .begin()
         .await
@@ -342,6 +391,102 @@ async fn carrier_rls_isolates_all_crud_and_allows_system_admin() {
         .await
         .expect("system-admin CRUD must commit");
 
+    let database_url = std::env::var("TEST_DATABASE_URL").expect("test URL was checked above");
+    let runtime_pool = PgPoolOptions::new()
+        .max_connections(1)
+        .after_connect(|connection, _metadata| {
+            Box::pin(async move {
+                sqlx::query("SET ROLE roadrunner_rls_test")
+                    .execute(connection)
+                    .await?;
+                Ok(())
+            })
+        })
+        .connect(&database_url)
+        .await
+        .expect("runtime test pool must connect");
+    let tenant_pool = TenantPool::new(runtime_pool);
+
+    let unscoped = sqlx::query_scalar::<_, i64>("SELECT count(*) FROM routes")
+        .fetch_one(&tenant_pool)
+        .await;
+    assert!(
+        matches!(unscoped, Err(sqlx::Error::Protocol(_))),
+        "tenant pool must reject SQL without an explicit context"
+    );
+
+    let visible_to_a = scope_request_context(Some(TenantContext::carrier(CARRIER_A)), async {
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM routes WHERE id = $1")
+            .bind(route_a)
+            .fetch_one(&tenant_pool)
+            .await
+    })
+    .await
+    .expect("tenant pool must execute scoped queries");
+    assert_eq!(visible_to_a, 1);
+
+    let duplicate_result = scope_request_context(Some(TenantContext::carrier(CARRIER_A)), async {
+        sqlx::query(
+            "INSERT INTO routes (id, name, number, description) \
+             VALUES ($1, 'duplicate', $2, 'must fail')",
+        )
+        .bind(route_a)
+        .bind(format!("DUP-{nonce}"))
+        .execute(&tenant_pool)
+        .await
+    })
+    .await;
+    assert!(duplicate_result.is_err(), "database errors must roll back");
+
+    let cancel_route = Uuid::new_v4();
+    let cancel_number = format!("CANCEL-{nonce}");
+    let cancellation_pool = tenant_pool.clone();
+    let (inserted_sender, inserted_receiver) = tokio::sync::oneshot::channel();
+    let cancelled = tokio::spawn(scope_request_context(
+        Some(TenantContext::carrier(CARRIER_A)),
+        async move {
+            let mut tx = cancellation_pool.begin().await.expect("transaction starts");
+            insert_route(&mut tx, cancel_route, &cancel_number, None)
+                .await
+                .expect("cancelled transaction inserts before suspension");
+            let _ = inserted_sender.send(());
+            sqlx::query("SELECT pg_sleep(30)")
+                .execute(&mut *tx)
+                .await
+                .expect("sleep query runs until cancellation");
+            tx.commit().await.expect("unreachable after cancellation");
+        },
+    ));
+    inserted_receiver
+        .await
+        .expect("cancelled transaction must reach the suspension point");
+    cancelled.abort();
+    let _ = cancelled.await;
+
+    let count_after_cancel = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        scope_request_context(Some(TenantContext::carrier(CARRIER_A)), async {
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM routes WHERE id = $1")
+                .bind(cancel_route)
+                .fetch_one(&tenant_pool)
+                .await
+        }),
+    )
+    .await
+    .expect("the single pooled connection must be reusable after cancellation")
+    .expect("post-cancellation query must succeed");
+    assert_eq!(count_after_cancel, 0, "cancelled work must roll back");
+
+    let leaked_to_b = scope_request_context(Some(TenantContext::carrier(CARRIER_B)), async {
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM routes WHERE id = $1")
+            .bind(route_a)
+            .fetch_one(&tenant_pool)
+            .await
+    })
+    .await
+    .expect("reused connection must accept the next carrier context");
+    assert_eq!(leaked_to_b, 0, "connection reuse must not leak carrier A");
+
     let mut tenant_a = scoped_transaction(&pool, TenantContext::carrier(CARRIER_A)).await;
     let updated_by_a = sqlx::query("UPDATE routes SET name = 'carrier A updated' WHERE id = $1")
         .bind(route_a)
@@ -359,6 +504,17 @@ async fn carrier_rls_isolates_all_crud_and_allows_system_admin() {
     assert_eq!(deleted_by_a, 1);
     tenant_a.commit().await.expect("carrier A CRUD must commit");
 
+    let mut tenant_a = scoped_transaction(&pool, TenantContext::carrier(CARRIER_A)).await;
+    sqlx::query("DELETE FROM stops WHERE id = $1")
+        .bind(stop_a)
+        .execute(&mut *tenant_a)
+        .await
+        .expect("carrier A may delete its stop");
+    tenant_a
+        .commit()
+        .await
+        .expect("carrier A stop cleanup commits");
+
     let mut tenant_b = scoped_transaction(&pool, TenantContext::carrier(CARRIER_B)).await;
     let deleted_by_b = sqlx::query("DELETE FROM routes WHERE id = $1")
         .bind(route_b)
@@ -367,6 +523,11 @@ async fn carrier_rls_isolates_all_crud_and_allows_system_admin() {
         .expect("carrier B may delete its own route")
         .rows_affected();
     assert_eq!(deleted_by_b, 1);
+    sqlx::query("DELETE FROM stops WHERE id = $1")
+        .bind(stop_b)
+        .execute(&mut *tenant_b)
+        .await
+        .expect("carrier B may delete its stop");
     tenant_b
         .commit()
         .await
