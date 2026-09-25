@@ -14,6 +14,8 @@ pub enum ClientType {
 #[derive(Debug, Clone)]
 pub struct Client {
     pub id: String,
+    pub carrier_id: Uuid,
+    pub user_id: Option<Uuid>,
     pub client_type: ClientType,
     pub subscribed_routes: Vec<Uuid>,   // Śledzone linie
     pub subscribed_vehicles: Vec<Uuid>, // Śledzone pojazdy
@@ -22,12 +24,14 @@ pub struct Client {
 /// Stan WebSocket - zarządza wszystkimi klientami
 pub struct WsState {
     clients: RwLock<HashMap<String, Client>>,
-    // Kanał broadcast dla pozycji GPS
-    gps_tx: broadcast::Sender<GpsBroadcast>,
+    // A separate channel per carrier makes cross-tenant delivery impossible
+    // even if route or vehicle UUIDs are ever reused by an importer.
+    gps_channels: RwLock<HashMap<Uuid, broadcast::Sender<GpsBroadcast>>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct GpsBroadcast {
+    pub carrier_id: Uuid,
     pub vehicle_id: Uuid,
     pub latitude: f64,
     pub longitude: f64,
@@ -41,18 +45,19 @@ pub struct GpsBroadcast {
 
 impl WsState {
     pub fn new() -> Self {
-        let (gps_tx, _) = broadcast::channel(100);
         Self {
             clients: RwLock::new(HashMap::new()),
-            gps_tx,
+            gps_channels: RwLock::new(HashMap::new()),
         }
     }
 
     /// Dodaj nowego klienta
-    pub async fn add_client(&self) -> String {
+    pub async fn add_client(&self, carrier_id: Uuid, user_id: Option<Uuid>) -> String {
         let client_id = Uuid::new_v4().to_string();
         let client = Client {
             id: client_id.clone(),
+            carrier_id,
+            user_id,
             client_type: ClientType::Passenger,
             subscribed_routes: vec![],
             subscribed_vehicles: vec![],
@@ -62,6 +67,15 @@ impl WsState {
         clients.insert(client_id.clone(), client);
 
         client_id
+    }
+
+    pub async fn client(&self, client_id: &str) -> Result<Client, String> {
+        self.clients
+            .read()
+            .await
+            .get(client_id)
+            .cloned()
+            .ok_or_else(|| "Client not found".to_string())
     }
 
     /// Usuń klienta
@@ -111,19 +125,72 @@ impl WsState {
         }
     }
 
-    /// Pobierz nadawcę broadcast GPS
-    pub fn get_gps_sender(&self) -> broadcast::Sender<GpsBroadcast> {
-        self.gps_tx.clone()
+    /// Pobierz nadawcę broadcast GPS dla jednego przewoźnika.
+    pub async fn get_gps_sender(&self, carrier_id: Uuid) -> broadcast::Sender<GpsBroadcast> {
+        let mut channels = self.gps_channels.write().await;
+        channels
+            .entry(carrier_id)
+            .or_insert_with(|| broadcast::channel(100).0)
+            .clone()
     }
 
-    /// Pobierz odbiorcę broadcast GPS
-    pub fn subscribe_gps(&self) -> broadcast::Receiver<GpsBroadcast> {
-        self.gps_tx.subscribe()
+    /// Pobierz odbiorcę broadcast GPS dla jednego przewoźnika.
+    pub async fn subscribe_gps(&self, carrier_id: Uuid) -> broadcast::Receiver<GpsBroadcast> {
+        self.get_gps_sender(carrier_id).await.subscribe()
     }
 }
 
 impl Default for WsState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{GpsBroadcast, WsState};
+    use tokio::sync::broadcast::error::TryRecvError;
+    use uuid::Uuid;
+
+    fn update(carrier_id: Uuid) -> GpsBroadcast {
+        GpsBroadcast {
+            carrier_id,
+            vehicle_id: Uuid::new_v4(),
+            latitude: 52.2297,
+            longitude: 21.0122,
+            speed_kmh: Some(35.0),
+            heading: Some(90),
+            route_id: None,
+            next_stop: None,
+            next_stop_eta: None,
+            timestamp: chrono::Utc::now(),
+        }
+    }
+
+    #[tokio::test]
+    async fn gps_channels_and_clients_are_carrier_scoped() {
+        let state = WsState::new();
+        let carrier_a = Uuid::new_v4();
+        let carrier_b = Uuid::new_v4();
+        let user_a = Uuid::new_v4();
+
+        let client_id = state.add_client(carrier_a, Some(user_a)).await;
+        let client = state.client(&client_id).await.expect("client exists");
+        assert_eq!(client.carrier_id, carrier_a);
+        assert_eq!(client.user_id, Some(user_a));
+
+        let mut receiver_a = state.subscribe_gps(carrier_a).await;
+        let mut receiver_b = state.subscribe_gps(carrier_b).await;
+        let message = update(carrier_a);
+        state
+            .get_gps_sender(carrier_a)
+            .await
+            .send(message.clone())
+            .expect("carrier A has a receiver");
+
+        let received = receiver_a.recv().await.expect("carrier A receives update");
+        assert_eq!(received.carrier_id, carrier_a);
+        assert_eq!(received.vehicle_id, message.vehicle_id);
+        assert!(matches!(receiver_b.try_recv(), Err(TryRecvError::Empty)));
     }
 }

@@ -2,8 +2,8 @@ use crate::{
     config::Config,
     errors::{AppError, AppResult},
     models::payment::{Payment, PaymentMethod, PaymentStatus},
+    tenant::TenantPool,
 };
-use sqlx::PgPool;
 use stripe::{Client, CreatePaymentIntent, Currency, PaymentIntent};
 use uuid::Uuid;
 
@@ -120,7 +120,7 @@ impl StripeService {
 /// # Returns
 /// * `Payment` - Utworzona płatność
 pub async fn create_payment_record(
-    pool: &PgPool,
+    pool: &TenantPool,
     user_id: Uuid,
     ticket_id: Option<Uuid>,
     amount: i32,
@@ -162,7 +162,7 @@ pub async fn create_payment_record(
 /// # Returns
 /// * `Payment` - Zaktualizowana płatność
 pub async fn update_payment_status(
-    pool: &PgPool,
+    pool: &TenantPool,
     payment_id: Uuid,
     status: PaymentStatus,
     stripe_payment_intent_id: Option<&str>,

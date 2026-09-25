@@ -1,4 +1,5 @@
 use axum::{
+    middleware,
     routing::{get, post},
     Router,
 };
@@ -8,6 +9,7 @@ use tracing::{info, Level};
 
 use roadrunner::config::Config;
 use roadrunner::state::AppState;
+use roadrunner::tenant::tenant_middleware;
 use roadrunner::websocket::state::WsState;
 
 #[tokio::main]
@@ -20,20 +22,41 @@ async fn main() {
 
     let config = Arc::new(Config::from_env());
 
+    let migration_database_url = config
+        .migration_database_url
+        .as_deref()
+        .unwrap_or(&config.database_url);
+    let migration_pool = PgPoolOptions::new()
+        .max_connections(1)
+        .connect(migration_database_url)
+        .await
+        .expect("Failed to connect to database for migrations");
+
+    info!("Running database migrations...");
+    sqlx::migrate!("./migrations")
+        .run(&migration_pool)
+        .await
+        .expect("Failed to run database migrations");
+    migration_pool.close().await;
+    info!("Database migrations up to date");
+
     let pool = PgPoolOptions::new()
         .max_connections(5)
         .connect(&config.database_url)
         .await
-        .expect("Failed to connect to database");
+        .expect("Failed to connect to database with the runtime role");
 
-    info!("Connected to database");
+    let (is_superuser, bypasses_rls): (bool, bool) =
+        sqlx::query_as("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user")
+            .fetch_one(&pool)
+            .await
+            .expect("Failed to verify the runtime database role");
+    assert!(
+        !is_superuser && !bypasses_rls,
+        "DATABASE_URL must use a NOSUPERUSER NOBYPASSRLS runtime role"
+    );
 
-    info!("Running database migrations...");
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .expect("Failed to run database migrations");
-    info!("Database migrations up to date");
+    info!("Connected to database with an RLS-enforced runtime role");
 
     let ws_state = Arc::new(WsState::new());
     info!("WebSocket state initialized");
@@ -153,6 +176,10 @@ async fn main() {
             "/webhooks/stripe",
             post(roadrunner::handlers::payments::stripe_webhook),
         )
+        .layer(middleware::from_fn_with_state(
+            app_state.clone(),
+            tenant_middleware,
+        ))
         .with_state(app_state.clone());
 
     let addr = format!("0.0.0.0:{}", app_state.config.port);

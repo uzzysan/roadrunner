@@ -436,8 +436,17 @@ mod tests {
         let ticket_id: Uuid = sqlx::query_scalar(
             r#"
             INSERT INTO tickets
-                (user_id, ticket_type, status, qr_code, price, currency, valid_until)
-            VALUES ($1, 'single', 'active', $2, 500, 'PLN', NOW() + INTERVAL '1 hour')
+                (carrier_id, user_id, ticket_type, status, qr_code, price, currency, valid_until)
+            VALUES (
+                '00000000-0000-4000-8000-000000000001',
+                $1,
+                'single',
+                'active',
+                $2,
+                500,
+                'PLN',
+                NOW() + INTERVAL '1 hour'
+            )
             RETURNING id
             "#,
         )

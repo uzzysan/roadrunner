@@ -19,6 +19,7 @@ use crate::{
     models::ticket::{Ticket, TicketStatus, TicketType},
     payments::stripe::{create_payment_record, update_payment_status, StripeService},
     state::AppState,
+    tenant::TenantContext,
     tickets::TicketPricing,
 };
 
@@ -256,7 +257,7 @@ pub async fn stripe_webhook(
         None
     };
 
-    let mut tx = state.db.begin().await?;
+    let mut tx = state.db.begin_as(TenantContext::system_admin()).await?;
     // The unique index serializes concurrent deliveries: ON CONFLICT waits for the
     // first transaction, then reports a duplicate only after it has committed.
     let inserted = sqlx::query(
