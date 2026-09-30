@@ -135,6 +135,22 @@ async fn main() {
             "/schedules/today",
             get(roadrunner::handlers::schedule::today_schedules),
         )
+        // Trips (actual-arrival event log — Phase 2)
+        .route(
+            "/trips",
+            get(roadrunner::handlers::trip::list_trips)
+                .post(roadrunner::handlers::trip::create_trip),
+        )
+        .route(
+            "/trips/:id",
+            get(roadrunner::handlers::trip::get_trip)
+                .patch(roadrunner::handlers::trip::update_trip),
+        )
+        .route(
+            "/trips/:id/events",
+            get(roadrunner::handlers::trip::list_trip_events)
+                .post(roadrunner::handlers::trip::create_trip_event),
+        )
         // Payments
         .route(
             "/payments",

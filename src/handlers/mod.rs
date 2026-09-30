@@ -4,3 +4,4 @@ pub mod route;
 pub mod schedule;
 pub mod stop;
 pub mod tickets;
+pub mod trip;
