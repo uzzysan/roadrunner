@@ -31,13 +31,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        # SQLx 0.7 requires the pre-1.100 never-type fallback.
+        uses: dtolnay/rust-toolchain@263313d2989f864a2b8613f97277288638e7d8f8 # 1.99.1
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
       - name: Install sqlx-cli
-        run: cargo install sqlx-cli --no-default-features --features postgres --version 0.7.3
+        run: cargo install sqlx-cli --locked --no-default-features --features postgres --version 0.7.4
 
       - name: Run Migrations
         run: |
