@@ -35,7 +35,7 @@ jobs:
 
       - name: Install Rust
         # SQLx 0.7 requires the pre-1.100 never-type fallback.
-        uses: dtolnay/rust-toolchain@1.99.1
+        uses: dtolnay/rust-toolchain@263313d2989f864a2b8613f97277288638e7d8f8 # 1.99.1
         with:
           components: rustfmt, clippy
 
