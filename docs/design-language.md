@@ -3,6 +3,15 @@
 This file is the stable, tracked entry point referenced by Linear and architecture
 documentation. It supersedes historical client-specific palettes and screenshots.
 
+## Brand identity / Tożsamość marki
+
+The [Roadrunner brandbook](brandbook.md) / [księga marki Roadrunner](brandbook.md) defines
+the Connected Route mark, its usage, and interface examples. The shared palette and component
+rules come from [Design System v2](DESIGN_SYSTEM_V2.md) and the machine-readable
+[`design/tokens.json`](../design/tokens.json). / Znak Connected Route, zasady jego stosowania
+i przykłady ekranów opisuje księga marki. Wspólna paleta i reguły komponentów pochodzą ze
+specyfikacji Design System v2 oraz z pliku tokenów.
+
 ## Product language
 
 - Use one semantic design-token contract across Expo, Leptos and Flutter; do not copy raw
